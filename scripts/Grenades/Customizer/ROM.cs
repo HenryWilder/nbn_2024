@@ -9,6 +9,11 @@ using static Device.CPU;
 /// </summary>
 public class ROM
 {
+    public ROM(IEnumerable<Line> iter)
+    {
+        data = new PackedROM(iter);
+    }
+
     #region Line
     [StructLayout(LayoutKind.Explicit, Pack = sizeof(short))]
     public readonly struct Line
@@ -41,7 +46,13 @@ public class ROM
     {
         public const int ROM_SIZE = 256;
 
-        public PackedROM() {}
+        public PackedROM(IEnumerable<Line> iter) {
+            fixed (ulong* dataPtr = data) {
+                foreach (var line in iter) {
+                    *(Line*)dataPtr[numLines++] = line;
+                }
+            }
+        }
         
         private readonly int numLines = 0; // May be fewer than the allocated space
         private unsafe fixed ulong data[ROM_SIZE];
@@ -68,7 +79,7 @@ public class ROM
             }
         }
     }
-    private PackedROM data = new();
+    private PackedROM data;
     public Line this[int lineNumber]
     {
         get => data[lineNumber];
@@ -81,14 +92,14 @@ public class ROM
     {
         Dictionary<string, ushort> labels = new();
         int offset = 0;
-        var lines = code
+        return new(code
             .Split('\n')
             .Select(line => line.Split(';')[0].Trim())
             .Where(line => !string.IsNullOrWhiteSpace(line))
             .Select(line => line
                 .Split(null)
-                .Where(token => !string.IsNullOrWhiteSpace(token))
                 .Select(token => token.Trim())
+                .Where(token => !string.IsNullOrEmpty(token))
             )
             .Where((line, i) => {
                 string label = line.First();
@@ -98,33 +109,47 @@ public class ROM
                 }
                 return !isLabel;
             })
-            .Select((line, i) => (line, i));
-
-        ROM rom = new();
-        foreach (var (line, i) in lines)
-        {
-            string token0 = line.Take(1).Single();
-            var op = (Instruction)Enum.Parse(typeof(Instruction), token0.ToUpper());
-
-            string[] args = line.Take(3).ToArray();
-            int numArgs = args.Length;
-
-            string roja = (numArgs > 0) ? args[0] : null;
-
-            string arg1 = (numArgs > 1) ? args[1] : null;
-            bool is1Imm = arg1?.StartsWith('#') ?? false;
-
-            string arg2 = (numArgs > 2) ? args[2] : null;
-            bool is2Imm = arg2?.StartsWith('#') ?? false;
-
-            rom[i] = new Line(
-                new Opcode(op, is1Imm, is2Imm),
-                (short)RegisterIndex(roja),
-                (short)RegisterIndex(arg1),
-                (short)RegisterIndex(arg2)
-            );
-        }
-        return rom;
+            .Select(line => (
+                op: (Instruction)Enum.Parse(typeof(Instruction), line.Take(1).Single().ToUpper()),
+                args: line.Take(3)
+            ))
+            .Select(line => (
+                line.op,
+                roja: line.args.Take(1).SingleOrDefault(),
+                arg1: line.args.Take(1).SingleOrDefault(),
+                arg2: line.args.Take(1).SingleOrDefault()
+            ))
+            .Select(line => (
+                line.op,
+                line.roja,
+                line.arg1,
+                line.arg2,
+                is1Imm: line.arg1 is not null && line.arg1.StartsWith('#'),
+                is2Imm: line.arg2 is not null && line.arg2.StartsWith('#')
+            ))
+            .Select((line, i) => {
+                return new Line(
+                    new Opcode(line.op, line.is1Imm, line.is2Imm),
+                    (short)RegisterIndex(line.roja),
+                    (short)RegisterIndex(line.arg1),
+                    (short)RegisterIndex(line.arg2)
+                );
+            })
+        );
     }
     #endregion
+
+    #region Example ROM
+    public static readonly ROM ExampleROM = Compile(
+        "mov r0 300      ;set the timer to repeat 300 times\n" +
+        "                ;note that reps are not a measure of time\n" +
+        ".timer:         ;define a spot to jump back to later\n" +
+        "    nop         ;do nothing this cycle\n" +
+        "    sub r0 r0 1 ;decrement the timer\n" +
+        "    jnz .timer  ;repeat if the CPU's zero flag is set\n" +
+        "                ;(i.e. the most recent operation resulted in 0)\n" +
+        "    mov 1 bam   ;explode the grenade\n"
+    );
+    #endregion
 }
+

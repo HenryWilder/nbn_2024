@@ -13,7 +13,7 @@ public partial class Customizer : GrenadeBase
     public override void _Process(double delta)
     {
         device.sensors.tms = (ushort)(Time.GetTicksMsec() - startTime);
-        device.Step();
+        device.cpu.Step();
     }
 
     public override void _PhysicsProcess(double delta)

@@ -1,21 +1,32 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
+using static Device.CPU;
 
 /// <summary>
 /// Program memory
 /// </summary>
 public class ROM
 {
-    public struct Line
+    #region Line
+    [StructLayout(LayoutKind.Explicit, Pack = sizeof(short))]
+    public readonly struct Line
     {
-        public Device.CPU.Opcode opcode;
-        /// <summary> Result or jump address </summary>
-        public short roja;
-        public short arg1;
-        public short arg2;
+        [FieldOffset(sizeof(short) * 0)]
+        public readonly Opcode opcode;
 
-        public Line(Device.CPU.Opcode opcode, short roja, short arg1, short arg2)
+        /// <summary> Result or jump address </summary>
+        [FieldOffset(sizeof(short) * 1)]
+        public readonly short roja;
+
+        [FieldOffset(sizeof(short) * 2)]
+        public readonly short arg1;
+
+        [FieldOffset(sizeof(short) * 3)]
+        public readonly short arg2;
+
+        public Line(Opcode opcode, short roja, short arg1, short arg2)
         {
             this.opcode = opcode;
             this.roja = roja;
@@ -23,11 +34,50 @@ public class ROM
             this.arg2 = arg2;
         }
     }
+    #endregion
 
-    private int numLines = 0;
-    private readonly Line[] rom = new Line[512];
+    #region Packed ROM
+    private unsafe struct PackedROM
+    {
+        public const int ROM_SIZE = 256;
 
-    public ROM(string code)
+        public PackedROM() {}
+        
+        private readonly int numLines = 0; // May be fewer than the allocated space
+        private unsafe fixed ulong data[ROM_SIZE];
+
+        private readonly void IndexGuard(int lineNumber) {
+            if (lineNumber < 0 || lineNumber >= numLines) {
+                throw new IndexOutOfRangeException();
+            }
+        }
+
+        public readonly Line this[int lineNumber]
+        {
+            get {
+                IndexGuard(lineNumber);
+                fixed (ulong* dataPtr = &data[lineNumber]) {
+                    return *(Line*)dataPtr;
+                }
+            }
+            set {
+                IndexGuard(lineNumber);
+                fixed (ulong* dataPtr = &data[lineNumber]) {
+                    *(Line*)dataPtr = value;
+                }
+            }
+        }
+    }
+    private PackedROM data = new();
+    public Line this[int lineNumber]
+    {
+        get => data[lineNumber];
+        private set => data[lineNumber] = value;
+    }
+    #endregion
+
+    #region Parse from string
+    public static ROM Compile(string code)
     {
         Dictionary<string, ushort> labels = new();
         int offset = 0;
@@ -50,16 +100,16 @@ public class ROM
             })
             .Select((line, i) => (line, i));
 
+        ROM rom = new();
         foreach (var (line, i) in lines)
         {
             string token0 = line.Take(1).Single();
-            var op = (Device.CPU.Instruction)Enum.Parse(typeof(Device.CPU.Instruction), token0.ToUpper());
+            var op = (Instruction)Enum.Parse(typeof(Instruction), token0.ToUpper());
 
             string[] args = line.Take(3).ToArray();
             int numArgs = args.Length;
 
             string roja = (numArgs > 0) ? args[0] : null;
-            bool isJImm = roja?.StartsWith('.') ?? false;
 
             string arg1 = (numArgs > 1) ? args[1] : null;
             bool is1Imm = arg1?.StartsWith('#') ?? false;
@@ -68,24 +118,13 @@ public class ROM
             bool is2Imm = arg2?.StartsWith('#') ?? false;
 
             rom[i] = new Line(
-                new Device.CPU.Opcode(op, isJImm, is1Imm, is2Imm),
-                (short)Device.CPU.RegisterIndex(roja),
-                (short)Device.CPU.RegisterIndex(arg1),
-                (short)Device.CPU.RegisterIndex(arg2)
+                new Opcode(op, is1Imm, is2Imm),
+                (short)RegisterIndex(roja),
+                (short)RegisterIndex(arg1),
+                (short)RegisterIndex(arg2)
             );
         }
+        return rom;
     }
-
-    public void AddLine(Line line)
-    {
-        if (numLines == rom.Length) {
-            throw new OutOfMemoryException("ROM cannot store any more lines");
-        }
-        rom[numLines++] = line;
-    }
-
-    public Line GetLine(int n)
-    {
-        return rom[n];
-    }
+    #endregion
 }

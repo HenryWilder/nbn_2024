@@ -1,6 +1,6 @@
 using Godot;
 
-public partial class Impact : RigidBody3D
+public partial class Impact : GrenadeBase
 {
 	public override void _Ready()
 	{
@@ -9,4 +9,9 @@ public partial class Impact : RigidBody3D
 	public override void _Process(double delta)
 	{
 	}
+
+    protected override void OnHit(Node other)
+    {
+		Explode();
+    }
 }

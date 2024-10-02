@@ -1,13 +1,29 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using static InstructionExtension;
 
 /// <summary>
 /// Program memory
 /// </summary>
 public class ROM
 {
+    public struct Line
+    {
+        public Device.CPU.Opcode opcode;
+        /// <summary> Result or jump address </summary>
+        public short roja;
+        public short arg1;
+        public short arg2;
+
+        public Line(Device.CPU.Opcode opcode, short roja, short arg1, short arg2)
+        {
+            this.opcode = opcode;
+            this.roja = roja;
+            this.arg1 = arg1;
+            this.arg2 = arg2;
+        }
+    }
+
     private int numLines = 0;
     private readonly Line[] rom = new Line[512];
 
@@ -37,10 +53,7 @@ public class ROM
         foreach (var (line, i) in lines)
         {
             string token0 = line.Take(1).Single();
-            if (!token0.TryIntoInstruction(out var op))
-            {
-                throw new Exception($"{token0} is not a valid instruction");
-            }
+            var op = (Device.CPU.Instruction)Enum.Parse(typeof(Device.CPU.Instruction), token0.ToUpper());
 
             string[] args = line.Take(3).ToArray();
             int numArgs = args.Length;
@@ -55,10 +68,10 @@ public class ROM
             bool is2Imm = arg2?.StartsWith('#') ?? false;
 
             rom[i] = new Line(
-                new Opcode(op, isJImm, is1Imm, is2Imm),
-                (short)CPU.RegisterIndex(roja),
-                (short)CPU.RegisterIndex(arg1),
-                (short)CPU.RegisterIndex(arg2)
+                new Device.CPU.Opcode(op, isJImm, is1Imm, is2Imm),
+                (short)Device.CPU.RegisterIndex(roja),
+                (short)Device.CPU.RegisterIndex(arg1),
+                (short)Device.CPU.RegisterIndex(arg2)
             );
         }
     }

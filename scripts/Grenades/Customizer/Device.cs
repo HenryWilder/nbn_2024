@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using static Device.CPU.Instruction;
 
 public class Device
 {
@@ -65,8 +66,14 @@ public class Device
             /// <summary> Jump if sign bit is set </summary>
             JS,
         }
+
+        public static bool IsMath(Instruction op)
+            => op is ADD or SUB or MUL or DIV or AND or ORR or NOT or XOR or MOV;
+
+        public static bool IsJump(Instruction op)
+            => op is JMP or JE or JNE or JZ or JNZ or JG or JL or JGE or JLE or JS;
         #endregion
-        
+
         #region Opcode
         [StructLayout(LayoutKind.Explicit, Pack = sizeof(short))]
         public readonly struct Opcode
@@ -81,9 +88,9 @@ public class Device
             public Opcode(Instruction op, bool is1Imm, bool is2Imm)
             {
                 data = (ushort)(
+                    (is1Imm ? ARG1_IS_IMMEDIATE_BIT : 0) |
+                    (is2Imm ? ARG2_IS_IMMEDIATE_BIT : 0) |
                     (int)op
-                    | (is1Imm ? ARG1_IS_IMMEDIATE_BIT : 0)
-                    | (is2Imm ? ARG2_IS_IMMEDIATE_BIT : 0)
                 );
             }
 
@@ -137,7 +144,7 @@ public class Device
             private const uint SIGN_BIT
                 = 0b10000000000000000000000000000000;
             private const uint ARITHMETIC_MASK
-                = 0b11110000000000000000000000000000;
+                = OVERFLOW_BIT | CARRY_BIT | ZERO_BIT | SIGN_BIT;
 
             private uint data = 0;
 
@@ -223,53 +230,58 @@ public class Device
             short arg1 = reg[line.opcode.IsArg1Immediate, line.arg1];
             short arg2 = reg[line.opcode.IsArg2Immediate, line.arg2];
             var op = line.opcode.Operation;
-            {
-                int result;
-                switch (op) {
-                    // arithmetic
-                    case Instruction.ADD: result = arg1 + arg2; break;
-                    case Instruction.SUB: result = arg1 - arg2; break;
-                    case Instruction.MUL: result = arg1 * arg2; break;
-                    case Instruction.DIV: result = arg1 / arg2; break;
 
-                    // logic
-                    case Instruction.AND: result = arg1 & arg2; break;
-                    case Instruction.ORR: result = arg1 | arg2; break;
-                    case Instruction.NOT: result = ~arg1;       break;
-                    case Instruction.XOR: result = arg1 ^ arg2; break;
-                    
-                    // other
-                    case Instruction.MOV: result = arg1; break;
-                    default: goto OtherInstructions;
-                };
-                status.SetArithmeticFlags(result);
-                // todo: does this account for the difference between int signbit and short signbit?
-                reg[line.roja] = (short)result;
-                goto UpdateCounter;
-            }
-
-        OtherInstructions:
+            int result = 0;
+            bool isJumping = false;
             switch (op) {
-                case Instruction.NOP:
-                    // do nothing
-                    break;
+                #region Math
+
+                case MOV: result = arg1; break;
+
+                // arithmetic
+                case ADD: result = arg1 + arg2; break;
+                case SUB: result = arg1 - arg2; break;
+                case MUL: result = arg1 * arg2; break;
+                case DIV: result = arg1 / arg2; break;
+
+                // logic
+                case AND: result = arg1 & arg2; break;
+                case ORR: result = arg1 | arg2; break;
+                case NOT: result = ~arg1;       break;
+                case XOR: result = arg1 ^ arg2; break;
+
+                #endregion
+
+                #region Jump
+
+                case JMP: isJumping = true;            break;
+                case JE:  isJumping = arg1 == arg2;    break;
+                case JNE: isJumping = arg1 != arg2;    break;
+                case JZ:  isJumping = status.ZeroBit;  break;
+                case JNZ: isJumping = !status.ZeroBit; break;
+                case JG:  isJumping = arg1 > arg2;     break;
+                case JL:  isJumping = arg1 < arg2;     break;
+                case JGE: isJumping = arg1 >= arg2;    break;
+                case JLE: isJumping = arg1 <= arg2;    break;
+                case JS:  isJumping = status.SignBit;  break;
+
+                #endregion
+
+                #region Other
+
+                case NOP: /* do nothing */ break;
+
+                #endregion
+            };
+
+            // ALU
+            if (IsMath(op)) {
+                status.SetArithmeticFlags(result);
+                reg[line.Result] = (short)result;
             }
 
-        UpdateCounter:
-            bool isJumping = op switch {
-                Instruction.JMP => true,
-                Instruction.JE  => arg1 == arg2,
-                Instruction.JNE => arg1 != arg2,
-                Instruction.JZ  => status.ZeroBit,
-                Instruction.JNZ => !status.ZeroBit,
-                Instruction.JG  => arg1 > arg2,
-                Instruction.JL  => arg1 < arg2,
-                Instruction.JGE => arg1 >= arg2,
-                Instruction.JLE => arg1 <= arg2,
-                Instruction.JS  => status.SignBit,
-                _ => false
-            };
-            status.PC = !isJumping ? status.PC + 1 : line.roja;
+            // Update PC
+            status.PC = isJumping ? line.JumpAddress : status.PC + 1;
         }
         #endregion
     }

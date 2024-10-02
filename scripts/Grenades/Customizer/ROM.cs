@@ -38,6 +38,12 @@ public class ROM
             this.arg1 = arg1;
             this.arg2 = arg2;
         }
+
+        /// <summary> Alias of roja </summary>
+        public short Result => roja;
+
+        /// <summary> Alias of roja </summary>
+        public short JumpAddress => roja;
     }
     #endregion
 
@@ -53,7 +59,7 @@ public class ROM
                 }
             }
         }
-        
+
         private readonly int numLines = 0; // May be fewer than the allocated space
         private unsafe fixed ulong data[ROM_SIZE];
 

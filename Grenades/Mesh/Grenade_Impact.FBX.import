@@ -1,0 +1,44 @@
+[remap]
+
+importer="scene"
+importer_version=1
+type="PackedScene"
+uid="uid://b04si0ikdkdi4"
+path="res://.godot/imported/Grenade_Impact.FBX-9669df2ea190be9b261a78d9e65e60bc.scn"
+
+[deps]
+
+source_file="res://Grenades/Mesh/Grenade_Impact.FBX"
+dest_files=["res://.godot/imported/Grenade_Impact.FBX-9669df2ea190be9b261a78d9e65e60bc.scn"]
+
+[params]
+
+nodes/root_type="Node3D"
+nodes/root_name=""
+nodes/apply_root_scale=false
+nodes/root_scale=1.0
+nodes/import_as_skeleton_bones=false
+meshes/ensure_tangents=true
+meshes/generate_lods=true
+meshes/create_shadow_meshes=true
+meshes/light_baking=1
+meshes/lightmap_texel_size=0.2
+meshes/force_disable_compression=false
+skins/use_named_skins=true
+animation/import=false
+animation/fps=30
+animation/trimming=true
+animation/remove_immutable_tracks=true
+animation/import_rest_as_RESET=false
+import_script/path=""
+_subresources={
+"materials": {
+"ImpactMat": {
+"use_external/enabled": true,
+"use_external/path": "res://Grenades/Materials/ImpactMat.tres"
+}
+}
+}
+fbx/importer=0
+fbx/allow_geometry_helper_nodes=false
+fbx/embedded_image_handling=1

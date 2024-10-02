@@ -1,0 +1,32 @@
+[gd_scene load_steps=4 format=3 uid="uid://3pqif7ldu6dd"]
+
+[ext_resource type="PackedScene" uid="uid://b04si0ikdkdi4" path="res://Grenades/Mesh/Grenade_Impact.FBX" id="1_410o1"]
+
+[sub_resource type="CSharpScript" id="CSharpScript_o6au4"]
+script/source = "using Godot;
+using System;
+
+public partial class ImpactGrenade : RigidBody3D
+{
+	// Called when the node enters the scene tree for the first time.
+	public override void _Ready()
+	{
+	}
+
+	// Called every frame. 'delta' is the elapsed time since the previous frame.
+	public override void _Process(double delta)
+	{
+	}
+}
+"
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_obpki"]
+radius = 0.04
+
+[node name="ImpactGrenade" type="RigidBody3D"]
+script = SubResource("CSharpScript_o6au4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_obpki")
+
+[node name="Grenade_Impact" parent="." instance=ExtResource("1_410o1")]

@@ -1,0 +1,27 @@
+[gd_scene load_steps=4 format=3 uid="uid://cuqkncv8a8g6f"]
+
+[ext_resource type="Script" path="res://scripts/Player.cs" id="1_yevsx"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_ms2h7"]
+radius = 0.4
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hxq6i"]
+radius = 0.4
+
+[node name="Player" type="CharacterBody3D" node_paths=PackedStringArray("Hand")]
+script = ExtResource("1_yevsx")
+Hand = NodePath("Hand")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_ms2h7")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_hxq6i")
+
+[node name="Head" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.526884, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Head"]
+
+[node name="Hand" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.457877)

@@ -1,0 +1,7 @@
+# Godot 4+ specific ignores
+.godot/
+.vs/
+.vscode/
+/android/
+FiraCode-Regular.woff2
+FiraCode-Regular.woff2.import

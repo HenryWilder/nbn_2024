@@ -1,0 +1,49 @@
+[gd_scene load_steps=9 format=3 uid="uid://r4wfqo4sftyu"]
+
+[ext_resource type="PackedScene" uid="uid://cuqkncv8a8g6f" path="res://Player.tscn" id="1_o840x"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_dbcxs"]
+
+[sub_resource type="Sky" id="Sky_4o6i6"]
+sky_material = SubResource("ProceduralSkyMaterial_dbcxs")
+
+[sub_resource type="Environment" id="Environment_jtq7b"]
+background_mode = 2
+sky = SubResource("Sky_4o6i6")
+ambient_light_source = 3
+reflected_light_source = 2
+glow_enabled = true
+volumetric_fog_enabled = true
+
+[sub_resource type="CameraAttributesPhysical" id="CameraAttributesPhysical_bptgp"]
+
+[sub_resource type="Compositor" id="Compositor_etrrd"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_x186g"]
+size = Vector3(20, 1, 20)
+
+[sub_resource type="ConvexPolygonShape3D" id="ConvexPolygonShape3D_a8o7s"]
+points = PackedVector3Array(-10, -0.5, -10, -10, 0.5, -10, 10, -0.5, -10, -10, -0.5, 10, -10, 0.5, 10, 10, 0.5, -10, 10, -0.5, 10, 10, 0.5, 10)
+
+[node name="TestLevel0" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_jtq7b")
+camera_attributes = SubResource("CameraAttributesPhysical_bptgp")
+compositor = SubResource("Compositor_etrrd")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+mesh = SubResource("BoxMesh_x186g")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="MeshInstance3D"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D"]
+shape = SubResource("ConvexPolygonShape3D_a8o7s")
+
+[node name="Player" parent="." instance=ExtResource("1_o840x")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.696939, 0)
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.566852, 0.82382, 0, -0.82382, 0.566852, 0, 0, 0)
+shadow_enabled = true

@@ -1,0 +1,67 @@
+[gd_scene load_steps=3 format=3 uid="uid://0krqm0p45xx1"]
+
+[ext_resource type="FontFile" uid="uid://dnskykd5ycc46" path="res://FiraCode-Regular.woff2" id="1_njq4k"]
+
+[sub_resource type="CodeHighlighter" id="CodeHighlighter_fot1b"]
+number_color = Color(0.66202, 0.847255, 0.643421, 1)
+symbol_color = Color(0.988927, 0.798749, 0.342798, 1)
+member_variable_color = Color(0.988235, 0.8, 0.341176, 1)
+keyword_colors = {
+"add": Color(0.964706, 0.360784, 0.341176, 1),
+"jnz": Color(0.966352, 0.361826, 0.341193, 1),
+"mov": Color(0.964706, 0.360784, 0.341176, 1),
+"nop": Color(0.964706, 0.360784, 0.341176, 1),
+"sub": Color(0.964706, 0.360784, 0.341176, 1)
+}
+member_keyword_colors = {
+"bam": Color(0.556309, 0.425155, 0.965414, 1),
+"r0": Color(0.516299, 0.663796, 0.982204, 1),
+"r1": Color(0.517647, 0.662745, 0.980392, 1),
+"r2": Color(0.517647, 0.662745, 0.980392, 1),
+"r3": Color(0.517647, 0.662745, 0.980392, 1)
+}
+color_regions = {
+"/* */": Color(0.2, 0.737255, 0.254902, 1)
+}
+
+[node name="ProgramEditor" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 0.12793
+offset_bottom = 0.0719604
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CodeEdit" type="CodeEdit" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_fonts/font = ExtResource("1_njq4k")
+text = "mov 3000 r0       /* [mov]e 3000 (the number of ticks we want the timer to last) into [r]egister [0] */
+.timer:           /* a label named \"timer\" which will act as an anchor we can jump to */
+    nop           /* perform [n]o [op]eration for 1 tick */
+    sub r0 1 r0   /* [sub]tract 1 from r0 and assign it to r0 */
+    jnz r0 .timer /* [j]ump back to .timer if r0 is [n]ot [z]ero */
+mov 1 bam         /* [mov]e 1 into the hardware register \"bam\", detonating the grenade */"
+scroll_past_end_of_file = true
+use_default_word_separators = false
+use_custom_word_separators = true
+custom_word_separators = "[]:"
+syntax_highlighter = SubResource("CodeHighlighter_fot1b")
+highlight_all_occurrences = true
+highlight_current_line = true
+line_folding = true
+gutters_draw_line_numbers = true
+gutters_draw_fold_gutter = true
+delimiter_strings = Array[String](["\" \""])
+indent_use_spaces = true
+indent_automatic = true
+indent_automatic_prefixes = Array[String]([":"])
+auto_brace_completion_enabled = true
+auto_brace_completion_highlight_matching = true
+auto_brace_completion_pairs = {
+"[": "]"
+}

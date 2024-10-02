@@ -1,0 +1,24 @@
+[gd_resource type="StandardMaterial3D" load_steps=5 format=3 uid="uid://cqk0rjhy2vn7k"]
+
+[ext_resource type="Texture2D" uid="uid://dqvae52f85el7" path="res://Grenades/Texture/Impact_BaseColor.png" id="1_jva4q"]
+[ext_resource type="Texture2D" uid="uid://dm1lk3fholj7m" path="res://Grenades/Texture/Impact_OcclusionRoughnessMetallic.png" id="2_nlggo"]
+[ext_resource type="Texture2D" uid="uid://kiofukxo52b" path="res://Grenades/Texture/Impact_Emissive.png" id="3_pqwyn"]
+[ext_resource type="Texture2D" uid="uid://by458rnpyfwt2" path="res://Grenades/Texture/Impact_Normal.png" id="4_aflkh"]
+
+[resource]
+resource_name = "ImpactMat"
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.79059, 0.79059, 0.79059, 1)
+albedo_texture = ExtResource("1_jva4q")
+albedo_texture_force_srgb = true
+metallic = 1.0
+metallic_texture = ExtResource("2_nlggo")
+metallic_texture_channel = 2
+roughness_texture = ExtResource("2_nlggo")
+roughness_texture_channel = 1
+emission_enabled = true
+emission_texture = ExtResource("3_pqwyn")
+normal_enabled = true
+normal_texture = ExtResource("4_aflkh")
+ao_enabled = true
+ao_texture = ExtResource("2_nlggo")

@@ -6,15 +6,40 @@ using Godot;
 /// </summary>
 public partial class GrenadeBase : RigidBody3D
 {
+    private bool isEnabled;
+    public bool IsEnabled
+    {
+        get => isEnabled;
+        set {
+            bool isChanged = value != isEnabled;
+            isEnabled = value;
+            if (isChanged) {
+                if (isEnabled) {
+                    GD.Print("Activated");
+                    EmitSignal(SignalName.GrenadeEnabled);
+                } else {
+                    GD.Print("Deactivated");
+                    EmitSignal(SignalName.GrenadeDisabled);
+                }
+            }
+        }
+    }
+
+    [Signal]
+    public delegate void GrenadeDisabledEventHandler();
+
+    [Signal]
+    public delegate void GrenadeEnabledEventHandler();
+
+    [Signal]
+    public delegate void GrenadeDetonatedEventHandler();
+
     public override void _Ready()
     {
+        IsEnabled = true;
         ContactMonitor = true;
         MaxContactsReported = 10;
         BodyEntered += OnHit;
-    }
-
-    public override void _Process(double delta)
-    {
     }
 
     protected virtual void OnHit(Node other)
@@ -32,18 +57,19 @@ public partial class GrenadeBase : RigidBody3D
 
     protected virtual void OnHitBody(PhysicsBody3D body)
     {
-        // do nothing
+        // optional override
     }
 
     protected virtual void OnHitGrid(GridMap grid)
     {
-        // do nothing
+        // optional override
     }
 
     protected virtual void Explode()
     {
         GD.Print("Boom!");
         // todo: explosion effect
+        EmitSignal(SignalName.GrenadeDetonated);
         QueueFree();
     }
 }

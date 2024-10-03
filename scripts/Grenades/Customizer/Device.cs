@@ -440,7 +440,15 @@ public class Device
     public ROM rom = null;
 
     public void Step() {
-        cpu.Execute(rom[cpu.CurrentLine], ref ram);
+        int currentLine = cpu.CurrentLine;
+        int numLines = rom.NumLines;
+        if (0 <= currentLine && currentLine < numLines) {
+            cpu.Execute(rom[currentLine], ref ram);
+        } else if (currentLine >= numLines) {
+            throw new IndexOutOfRangeException($"Cannot execute line {currentLine+1} of a ROM containing {numLines} lines");
+        } else { // currentLine < 0
+            throw new IndexOutOfRangeException($"Cannot execute negative line number (line index {currentLine})");
+        }
     }
 
     public bool IsRomInserted()

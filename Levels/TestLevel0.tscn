@@ -1,6 +1,7 @@
-[gd_scene load_steps=9 format=3 uid="uid://r4wfqo4sftyu"]
+[gd_scene load_steps=10 format=3 uid="uid://r4wfqo4sftyu"]
 
 [ext_resource type="PackedScene" uid="uid://cuqkncv8a8g6f" path="res://Player.tscn" id="1_o840x"]
+[ext_resource type="PackedScene" uid="uid://d3ue5uldb2hw3" path="res://Grenades/CustomizerGrenade.tscn" id="2_oiqdo"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_dbcxs"]
 
@@ -47,3 +48,5 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.696939, 0)
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.566852, 0.82382, 0, -0.82382, 0.566852, 0, 0, 0)
 shadow_enabled = true
+
+[node name="CustomizerGrenade" parent="." instance=ExtResource("2_oiqdo")]

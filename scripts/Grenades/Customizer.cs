@@ -13,17 +13,19 @@ public partial class Customizer : GrenadeBase
 
     public override void _Process(double delta)
     {
-        device.cpu.reg.Tms = (short)(Time.GetTicksMsec() - startTime);
-        const float MILLI = 1.0f / 1000.0f;
-        device.cpu.reg.Vel = (short)(LinearVelocity.Length() * MILLI);
-        try {
-            device.Step();
-        } catch (Exception e) {
-            GD.PrintErr($"Emulator error: {e.Message}\nInitiating self-destruct.");
-            device.cpu.reg.Bam = 1;
-        }
-        if (device.cpu.reg.Bam != 0) {
-            Explode();
+        if (IsEnabled) {
+            device.cpu.reg.Tms = (short)(Time.GetTicksMsec() - startTime);
+            const float MILLI = 1.0f / 1000.0f;
+            device.cpu.reg.Vel = (short)(LinearVelocity.Length() * MILLI);
+            try {
+                device.Step();
+            } catch (Exception e) {
+                GD.PrintErr($"Emulator error: {e.Message}\nInitiating self-destruct");
+                device.cpu.reg.Bam = 1;
+            }
+            if (device.cpu.reg.Bam != 0) {
+                Explode();
+            }
         }
     }
 
@@ -34,8 +36,14 @@ public partial class Customizer : GrenadeBase
 
     public void Insert(ROM rom)
     {
-        GD.Print($"Inserting ROM:\n```\n{rom}\n```");
         device.rom = rom;
+        if (device.IsRomInserted()) {
+            GD.Print($"Inserting ROM:\n```\n{rom}\n```");
+            IsEnabled = true;
+        } else {
+            GD.PrintErr("No ROM is inserted.");
+            IsEnabled = false;
+        }
     }
 
     public void Insert(NadeBasic program)

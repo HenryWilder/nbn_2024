@@ -179,7 +179,7 @@ public class ROM
             .Select((line, i) =>
             {
                 var token0 = line.First();
-                var op = (Instruction)Enum.Parse(typeof(Instruction), token0.ToUpper());
+                var op = Enum.Parse<Instruction>(token0.ToUpper());
 
                 var args = line.Skip(1).Take(3);
                 GD.Print($"args: [{string.Join(',', args)}]");
@@ -205,7 +205,9 @@ public class ROM
                 return result;
             });
 
-        return new(result);
+        ROM rom = new(result);
+        GD.Print($"Generated ROM with {rom.NumLines*sizeof(ulong)}/{PackedROM.ROM_SIZE*sizeof(ulong)} bytes");
+        return rom;
     }
     #endregion
 

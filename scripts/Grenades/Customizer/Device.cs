@@ -320,13 +320,9 @@ public class Device
             if (IsMath(op)) {
                 status.SetArithmeticFlags(result);
                 reg[line.Result] = (short)result;
-                GD.Print($"  Assigning {(short)result} to register {line.Result}");
                 GD.Print(
-                    "  Status flags updated:" +
-                    $" Overflow={status.OverflowBit}," +
-                    $" Carry={status.CarryBit}," +
-                    $" Zero={status.ZeroBit}," +
-                    $" Sign={status.SignBit}"
+                    $"  Assigning {(short)result} to register {line.Result}\n" +
+                    $"    Status flags updated: Overflow={status.OverflowBit}, Carry={status.CarryBit}, Zero={status.ZeroBit}, Sign={status.SignBit}"
                 );
             }
 

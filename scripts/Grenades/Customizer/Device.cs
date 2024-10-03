@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Godot;
 using static Device.CPU.Instruction;
@@ -19,6 +20,10 @@ public class Device
             NOP,
             /// <summary> Set </summary>
             MOV,
+            /// <summary> Load to register from RAM </summary>
+            LDR,
+            /// <summary> Save to RAM </summary>
+            SDR,
             /// <summary> Add </summary>
             ADD,
             /// <summary> Subtract </summary>
@@ -249,25 +254,29 @@ public class Device
         public int CurrentLine => status.PC;
         #endregion
 
-        #region Stack
-        /// <summary> Stack pointer </summary>
-        private int SP = 0; // todo
-        #endregion
-
-        #region Step
-        public void Execute(ROM.Line line)
+        #region Execute
+        public void Execute(ROM.Line line, ref RAM ram)
         {
             GD.Print($"{reg.Tms}ms: Running line {status.PC}: \"{line}\"");
             short arg1 = reg[line.opcode.IsArg1Immediate, line.arg1];
             short arg2 = reg[line.opcode.IsArg2Immediate, line.arg2];
             var op = line.opcode.Operation;
 
-            int result = 0;
+            int? result = null;
             bool isJumping = false;
             switch (op) {
                 #region Math
 
-                case MOV: result = arg1; break;
+                // memory
+                case MOV:
+                    result = arg1;
+                    break;
+                case LDR:
+                    result = ram.Load<short>(arg1);
+                    break;
+                case SDR:
+                    ram.Save(line.Result, arg1);
+                    break;
 
                 // arithmetic
                 case ADD: result = arg1 + arg2; break;
@@ -306,11 +315,11 @@ public class Device
             };
 
             // ALU
-            if (IsMath(op)) {
-                status.SetArithmeticFlags(result);
-                reg[line.Result] = (short)result;
+            if (result is int x) {
+                status.SetArithmeticFlags(x);
+                reg[line.Result] = (short)x;
                 GD.Print(
-                    $"  Assigning {(short)result} to register {line.Result}\n" +
+                    $"  Assigning {(short)x} to register {line.Result}\n" +
                     $"    Status flags updated: Overflow={status.OverflowBit}, Carry={status.CarryBit}, Zero={status.ZeroBit}, Sign={status.SignBit}"
                 );
             }
@@ -353,6 +362,7 @@ public class Device
                 T* tPtr = (T*)bytePtr;
                 result = tPtr[index];
             }
+            GD.Print($"Reading {sizeof(T)} bytes from RAM at index {index} (byte {index*sizeof(T)}): {result}");
             return result;
         }
 
@@ -363,6 +373,7 @@ public class Device
                 T* tPtr = (T*)bytePtr;
                 tPtr[index] = value;
             }
+            GD.Print($"Writing {sizeof(T)} bytes to RAM at index {index} (byte {index*sizeof(T)}): {value}");
         }
 
         public void Write<T>(int index, T[] data) where T: unmanaged
@@ -370,10 +381,22 @@ public class Device
             GuardBytes<T>(index, data.Length);
             fixed (byte* bytePtr = memory) {
                 T* tPtr = (T*)bytePtr;
+                int i = index;
                 foreach (T item in data) {
-                    tPtr[index++] = item;
+                    tPtr[i++] = item;
                 }
             }
+            GD.Print(
+                $"Writing {sizeof(T)*data.Length} bytes ({data.Length} {sizeof(T)}-byte items) to RAM at index {index} (byte {index*sizeof(T)}): [\n" +
+                string.Join(",\n", data.Select(item => "  " + item)) +
+                $"\n]"
+            );
+        }
+
+        public void Write(NadeBasic program)
+        {
+            Save(0, (short)program.tokens.Length);
+            Write(1, program.tokens);
         }
     }
     public RAM ram = new();
@@ -383,7 +406,7 @@ public class Device
     public ROM rom = null;
 
     public void Step() {
-        cpu.Execute(rom[cpu.CurrentLine]);
+        cpu.Execute(rom[cpu.CurrentLine], ref ram);
     }
 
     public bool IsRomInserted()

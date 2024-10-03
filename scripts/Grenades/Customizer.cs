@@ -8,8 +8,7 @@ public partial class Customizer : GrenadeBase
 
     public override void _Ready()
     {
-        // todo: have user insert a ROM manually
-        Insert(ROM.ExampleROM);
+        Insert(NadeBasic.ExampleProgram); // todo: have user insert a ROM manually
     }
 
     public override void _Process(double delta)
@@ -33,10 +32,15 @@ public partial class Customizer : GrenadeBase
         device.cpu.reg.Hit = 1; // todo: think of a clever use for the other 15 bits
     }
 
-    public ROM Insert(ROM rom)
+    public void Insert(ROM rom)
     {
         GD.Print($"Inserting ROM:\n```\n{rom}\n```");
-        (var old, device.rom) = (device.rom, rom);
-        return old;
+        device.rom = rom;
+    }
+
+    public void Insert(NadeBasic program)
+    {
+        Insert(NadeBasic.InterpreterROM);
+        device.ram.Write(program);
     }
 }

@@ -48,10 +48,13 @@ public class ROM
 
         public override string ToString()
         {
-            var rojaLbl = IsJump(opcode.Operation) ? "lbl" : "reg";
-            var arg1Imm = opcode.IsArg1Immediate ? "lit" : "reg";
-            var arg2Imm = opcode.IsArg2Immediate ? "lit" : "reg";
-            return $"{opcode.Operation} {rojaLbl}({roja}) {arg1Imm}({arg1}) {arg2Imm}({arg2})";
+            var op = opcode.Operation;
+            int num = op.ExpectedArgs();
+            List<string> parts = new(1 + num) { $"{op}" };
+            if (num > 0) parts.Add((op.IsJump() ? "lbl" : "reg") + $"({roja})");
+            if (num > 1) parts.Add((opcode.IsArg1Immediate ? "lit" : "reg") + $"({arg1})");
+            if (num > 2) parts.Add((opcode.IsArg2Immediate ? "lit" : "reg") + $"({arg2})");
+            return string.Join(' ', parts);
         }
     }
     #endregion
@@ -139,7 +142,8 @@ public class ROM
                 : (short)0;
 
         int offset = 0;
-        return new(code
+
+        var lines = code
             // iterate over each line
             .Split('\n')
             // remove comments
@@ -153,10 +157,12 @@ public class ROM
                 .Where(token => !string.IsNullOrWhiteSpace(token))
             )
             // map labels and remove them from the source code
-            .Where((line, i) => {
+            .Where((line, i) =>
+            {
                 string label = line.First();
                 bool isLabel = label.StartsWith('.') && label.EndsWith(':');
-                if (isLabel) {
+                if (isLabel)
+                {
                     short position = (short)(i - offset++);
                     string labelName = label[..(label.Length - 1)];
                     // GD.Print($"mapping label \"{labelName}\" to line {position}");
@@ -164,12 +170,24 @@ public class ROM
                 }
                 return !isLabel;
             })
-            .Select((line, i) => {
+            // "collect" the iterator so that every element is evaluated.
+            // we need the labels to be mapped before looking them up;
+            // and we want to be able to jump forward, not just back.
+            .ToArray();
+
+        var result = lines
+            .Select((line, i) =>
+            {
                 var token0 = line.First();
                 var op = (Instruction)Enum.Parse(typeof(Instruction), token0.ToUpper());
 
                 var args = line.Skip(1).Take(3);
-                // GD.Print($"args: [{string.Join(',', args)}]");
+                GD.Print($"args: [{string.Join(',', args)}]");
+                int numExpected = op.ExpectedArgs();
+                if (args.Count() != numExpected)
+                {
+                    GD.PrintErr($"at line {i}: {op} expects {numExpected} arguments but {args.Count()} were provided");
+                }
                 var roja = args.ElementAtOrDefault(0);
                 var arg1 = args.ElementAtOrDefault(1);
                 var arg2 = args.ElementAtOrDefault(2);
@@ -185,8 +203,9 @@ public class ROM
                 );
                 // GD.Print($"result: {result}");
                 return result;
-            })
-        );
+            });
+
+        return new(result);
     }
     #endregion
 
@@ -196,15 +215,15 @@ public class ROM
     }
 
     #region Example ROM
-    public static readonly ROM ExampleROM = Compile(
-        "mov r0 #2        ;set the timer to repeat 2 times\n" +
-        "                 ;note that reps are not a measure of time\n" +
-        ".timer:          ;define a spot to jump back to later\n" +
-        "    nop          ;do nothing this cycle\n" +
-        "    sub r0 r0 #1 ;decrement the timer\n" +
-        "    jnz .timer   ;repeat if the CPU's zero flag is set\n" +
-        "                 ;(i.e. the most recent operation resulted in 0)\n" +
-        "    mov bam #1   ;explode the grenade"
-    );
+    public static readonly ROM ExampleROM = Compile(@"
+mov r0 #2        ;set the timer to repeat 2 times
+                 ;note that reps are not a measure of time
+.timer:          ;define a spot to jump back to later
+    nop          ;do nothing this cycle
+    sub r0 r0 #1 ;decrement the timer
+    jnz .timer   ;repeat if the CPU's zero flag is set
+                 ;(i.e. the most recent operation resulted in 0)
+    mov bam #1   ;explode the grenade
+");
     #endregion
 }

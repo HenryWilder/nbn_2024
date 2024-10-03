@@ -132,17 +132,27 @@ public class NadeBasic
     }
 
     #region NadeBasic Interpreter ROM
-    public static readonly ROM InterpreterROM = ROM.Compile(
-        "ldr r0\n" +
-        "mov bam #1"
-    );
+    public static readonly ROM InterpreterROM = ROM.Compile(@"
+mov r1 #2 ;token counter
+          ;offset added to account for NadeBasic 'header'
+ldr r2 #0 ;total number of tokens
+
+.readTokens:
+    mul r3 r1 #4          ;calculate byte offset for tag
+    ldr r0 r1             ;first token
+    add r3 r3 #1          ;calculate byte offset for tag
+    add r1 r1 #1          ;increment counter
+    jle .readTokens r1 r2 ;while counter <= total
+
+mov bam #1
+");
     #endregion
 
     #region Example Program
-    public static readonly NadeBasic ExampleProgram = Parse(
-        ":For (I,0,3\n" +
-        ":End\n" +
-        ":Explode"
-    );
+    public static readonly NadeBasic ExampleProgram = Parse(@"
+:For (I,0,3
+:End
+:Explode
+");
     #endregion
 }

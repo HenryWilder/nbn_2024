@@ -40,7 +40,7 @@ public partial class Customizer : GrenadeBase
 
     public void Insert(NadeBasic program)
     {
-        Insert(NadeBasic.InterpreterROM);
         device.ram.Write(program);
+        Insert(NadeBasic.InterpreterROM);
     }
 }

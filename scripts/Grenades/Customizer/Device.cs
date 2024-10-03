@@ -3,6 +3,43 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Godot;
 using static Device.CPU.Instruction;
+using static InstructionExtension;
+
+public static class InstructionExtension {
+    public static int ExpectedArgs(this Device.CPU.Instruction op)
+        => op switch
+        {
+            NOP => 0, // none
+            MOV => 2, // dest, src
+            LDR => 2, // dest, index
+            SDR => 2, // index, src
+            ADD => 3, // result, a, b
+            SUB => 3, // result, a, b
+            MUL => 3, // result, a, b
+            DIV => 3, // result, a, b
+            AND => 3, // result, a, b
+            ORR => 3, // result, a, b
+            NOT => 2, // result, x
+            XOR => 3, // result, a, b
+            JMP => 1, // address
+            JE  => 3, // address, a, b
+            JNE => 3, // address, a, b
+            JZ  => 1, // address
+            JNZ => 1, // address
+            JG  => 3, // address, a, b
+            JL  => 3, // address, a, b
+            JGE => 3, // address, a, b
+            JLE => 3, // address, a, b
+            JS  => 1, // address
+            _ => throw new NotImplementedException(),
+        };
+
+    public static bool IsMath(this Device.CPU.Instruction op)
+        => op is ADD or SUB or MUL or DIV or AND or ORR or NOT or XOR or MOV;
+
+    public static bool IsJump(this Device.CPU.Instruction op)
+        => op is JMP or JE or JNE or JZ or JNZ or JG or JL or JGE or JLE or JS;
+}
 
 public class Device
 {
@@ -61,12 +98,6 @@ public class Device
             /// <summary> Jump if sign bit is set </summary>
             JS,
         }
-
-        public static bool IsMath(Instruction op)
-            => op is ADD or SUB or MUL or DIV or AND or ORR or NOT or XOR or MOV;
-
-        public static bool IsJump(Instruction op)
-            => op is JMP or JE or JNE or JZ or JNZ or JG or JL or JGE or JLE or JS;
         #endregion
 
         #region Opcode
@@ -257,10 +288,10 @@ public class Device
         #region Execute
         public void Execute(ROM.Line line, ref RAM ram)
         {
-            GD.Print($"{reg.Tms}ms: Running line {status.PC}: \"{line}\"");
+            var op = line.opcode.Operation;
             short arg1 = reg[line.opcode.IsArg1Immediate, line.arg1];
             short arg2 = reg[line.opcode.IsArg2Immediate, line.arg2];
-            var op = line.opcode.Operation;
+            GD.Print($"{reg.Tms}ms: Running line {status.PC}: \"{line}\" | arg1: {arg1} arg2: {arg2}");
 
             int? result = null;
             bool isJumping = false;
@@ -319,8 +350,11 @@ public class Device
                 status.SetArithmeticFlags(x);
                 reg[line.Result] = (short)x;
                 GD.Print(
-                    $"  Assigning {(short)x} to register {line.Result}\n" +
-                    $"    Status flags updated: Overflow={status.OverflowBit}, Carry={status.CarryBit}, Zero={status.ZeroBit}, Sign={status.SignBit}"
+                    $"  Assigning {(short)x} to register {line.Result} " +
+                    (status.OverflowBit ? " Overflow" : "") +
+                    (status.CarryBit    ? " Carry" : "") +
+                    (status.ZeroBit     ? " Zero" : "") +
+                    (status.SignBit     ? " Sign" : "")
                 );
             }
 
@@ -362,7 +396,7 @@ public class Device
                 T* tPtr = (T*)bytePtr;
                 result = tPtr[index];
             }
-            GD.Print($"Reading {sizeof(T)} bytes from RAM at index {index} (byte {index*sizeof(T)}): {result}");
+            GD.Print($"{{Reading {sizeof(T)} bytes from RAM at index {index} (byte {index*sizeof(T)}): {result}}}");
             return result;
         }
 
@@ -373,7 +407,7 @@ public class Device
                 T* tPtr = (T*)bytePtr;
                 tPtr[index] = value;
             }
-            GD.Print($"Writing {sizeof(T)} bytes to RAM at index {index} (byte {index*sizeof(T)}): {value}");
+            GD.Print($"{{Writing {sizeof(T)} bytes to RAM at index {index} (byte {index*sizeof(T)}): {value}}}");
         }
 
         public void Write<T>(int index, T[] data) where T: unmanaged
@@ -387,9 +421,9 @@ public class Device
                 }
             }
             GD.Print(
-                $"Writing {sizeof(T)*data.Length} bytes ({data.Length} {sizeof(T)}-byte items) to RAM at index {index} (byte {index*sizeof(T)}): [\n" +
+                $"{{Writing {sizeof(T)*data.Length} bytes ({data.Length} {sizeof(T)}-byte items) to RAM at index {index} (byte {index*sizeof(T)}): [\n" +
                 string.Join(",\n", data.Select(item => "  " + item)) +
-                $"\n]"
+                $"\n]}}"
             );
         }
 

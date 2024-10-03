@@ -8,6 +8,9 @@ public partial class Customizer : GrenadeBase
     public override void _Ready()
     {
         startTime = Time.GetTicksMsec();
+
+        // todo: have user insert a ROM manually
+        Insert(ROM.ExampleROM);
     }
 
     public override void _Process(double delta)

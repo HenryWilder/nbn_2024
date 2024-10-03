@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using static Device.CPU;
@@ -55,7 +56,7 @@ public class ROM
         public PackedROM(IEnumerable<Line> iter) {
             fixed (ulong* dataPtr = data) {
                 foreach (var line in iter) {
-                    *(Line*)dataPtr[numLines++] = line;
+                    *(Line*)&dataPtr[numLines++] = line;
                 }
             }
         }
@@ -158,4 +159,3 @@ public class ROM
     );
     #endregion
 }
-

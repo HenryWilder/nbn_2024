@@ -1,0 +1,15 @@
+[gd_scene load_steps=4 format=3 uid="uid://d3ue5uldb2hw3"]
+
+[ext_resource type="Script" path="res://scripts/Grenades/Customizer.cs" id="1_bma0i"]
+[ext_resource type="PackedScene" uid="uid://b04si0ikdkdi4" path="res://Grenades/Mesh/Grenade_Impact.FBX" id="1_thvrc"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_obpki"]
+radius = 0.04
+
+[node name="CustomizerGrenade" type="RigidBody3D"]
+script = ExtResource("1_bma0i")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_obpki")
+
+[node name="Grenade_Impact" parent="." instance=ExtResource("1_thvrc")]

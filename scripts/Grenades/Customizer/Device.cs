@@ -268,6 +268,7 @@ public class Device
         public void Step()
         {
             ROM.Line line = device.rom[status.PC];
+            GD.Print($"{reg.Tms}ms: Running line {status.PC}: \"{line}\"");
             short arg1 = reg[line.opcode.IsArg1Immediate, line.arg1];
             short arg2 = reg[line.opcode.IsArg2Immediate, line.arg2];
             var op = line.opcode.Operation;
@@ -319,10 +320,24 @@ public class Device
             if (IsMath(op)) {
                 status.SetArithmeticFlags(result);
                 reg[line.Result] = (short)result;
+                GD.Print($"  Assigning {(short)result} to register {line.Result}");
+                GD.Print(
+                    "  Status flags updated:" +
+                    $" Overflow={status.OverflowBit}," +
+                    $" Carry={status.CarryBit}," +
+                    $" Zero={status.ZeroBit}," +
+                    $" Sign={status.SignBit}"
+                );
             }
 
             // Update PC
-            status.PC = isJumping ? line.JumpAddress : status.PC + 1;
+            if (isJumping) {
+                GD.Print($"  Jumping from line {status.PC} to line {line.JumpAddress}");
+                status.PC = line.JumpAddress;
+            } else {
+                ++status.PC;
+                GD.Print($"  Stepping to line {status.PC}");
+            }
         }
         #endregion
     }

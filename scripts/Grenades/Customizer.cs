@@ -1,4 +1,5 @@
-﻿using Godot;
+﻿using System;
+using Godot;
 
 public partial class Customizer : GrenadeBase
 {
@@ -16,7 +17,15 @@ public partial class Customizer : GrenadeBase
     public override void _Process(double delta)
     {
         device.cpu.reg.Tms = (short)(Time.GetTicksMsec() - startTime);
-        device.cpu.Step();
+        try {
+            device.cpu.Step();
+        } catch (Exception e) {
+            GD.PrintErr($"Error: {e}\nInitiating self-destruct.");
+            device.cpu.reg.Bam = 1;
+        }
+        if (device.cpu.reg.Bam != 0) {
+            Explode();
+        }
     }
 
     public override void _PhysicsProcess(double delta)
@@ -33,7 +42,7 @@ public partial class Customizer : GrenadeBase
 
     public ROM Insert(ROM rom)
     {
-        GD.Print($"Inserting ROM:\n{rom}");
+        GD.Print($"Inserting ROM:\n```\n{rom}\n```");
         (var old, device.rom) = (device.rom, rom);
         return old;
     }

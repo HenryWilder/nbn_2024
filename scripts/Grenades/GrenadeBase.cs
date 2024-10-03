@@ -42,6 +42,7 @@ public partial class GrenadeBase : RigidBody3D
 
     protected virtual void Explode()
     {
+        GD.Print("Boom!");
         // todo: explosion effect
         QueueFree();
     }

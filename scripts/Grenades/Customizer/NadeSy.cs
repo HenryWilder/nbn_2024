@@ -241,17 +241,23 @@ public static class NadeSy
         public class Atom(IToken token) : INode
         {
             public readonly IToken token = token;
-            public override string ToString() => $"{{{token}}}";
+            public override string ToString() => $"{token}";
         }
 
         public class Layer(ScopeType tag) : INode
         {
             public readonly ScopeType tag = tag;
             public readonly List<INode> items = [];
-            public override string ToString() => $"{tag}[{string.Join(',',items.Select(x=>x.ToString()))}]";
+            public override string ToString()
+            {
+                var inner = string.Join("", items.Select(x => $"\n{x},")).Replace("\n", "\n  ");
+                return $"{tag}\n[{inner}\n]";
+            }
         }
 
         public readonly Layer root = new(ScopeType.Statement);
+
+        public override string ToString() => root.ToString();
 
         public class Builder {
             public Builder()

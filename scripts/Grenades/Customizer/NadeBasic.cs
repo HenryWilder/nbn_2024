@@ -14,6 +14,7 @@ public class NadeBasic
         this.tokens = tokens.ToArray();
     }
 
+    #region Tokens
     public enum Cmd : short
     {
         End, // ends a region like "for" or "if", not the entire program
@@ -23,10 +24,8 @@ public class NadeBasic
 
     public enum Punc : short
     {
-        LineBreak = (short)':',
+        LineBreak = (short)'\n',
         Comma = (short)',',
-        LParen = (short)'(', // distinct from the lparen baked into parameterized commands
-        RParen = (short)')',
     }
 
     public unsafe readonly struct Token
@@ -75,35 +74,33 @@ public class NadeBasic
         }
     }
     public readonly Token[] tokens;
+    #endregion
 
+    #region Parser
     private static readonly Regex rxTokenize = new(
-        @"(:|For \(|End|Explode|[A-Z]|-?[0-9]+|,)",
+        @"(\n|FOR|END|EXPLODE|[a-z]|-?[0-9]+|,)",
         RegexOptions.Compiled);
 
     public static NadeBasic Parse(string code)
     {
         GD.Print($"Parsing NadeBasic code:\n```\n{code}\n```");
         var tokens = rxTokenize
-            .Matches(code.Replace("\n", ""))
+            .Matches(code)
             .Select((Match match) =>
             {
                 string word = match.Value;
                 switch (word)
                 {
-                    case ":":
+                    case "\n":
                         return Token.LineBreak;
-                    case "For (":
+                    case "FOR":
                         return Token.Command(Cmd.For);
-                    case "End":
+                    case "END":
                         return Token.Command(Cmd.End);
-                    case "Explode":
+                    case "EXPLODE":
                         return Token.Command(Cmd.Explode);
                     case ",":
                         return Token.Punctuation(Punc.Comma);
-                    case "(":
-                        return Token.Punctuation(Punc.LParen);
-                    case ")":
-                        return Token.Punctuation(Punc.RParen);
                     default:
                         if (word[0] is char name && char.IsLetter(name) && word.Length == 1)
                         {
@@ -125,6 +122,7 @@ public class NadeBasic
         GD.Print($"Generated {result.tokens.Length} tokens:\n```\n{result}\n```");
         return result;
     }
+    #endregion
 
     public override string ToString()
     {
@@ -132,7 +130,7 @@ public class NadeBasic
     }
 
     #region NadeBasic Interpreter ROM
-    public static readonly ROM InterpreterROM = ROM.Compile(@"
+    public static readonly ROM InterpreterROM = ROM.Parse(@"
 mov r1 #2 ;token counter
           ;offset added to account for NadeBasic 'header'
 ldr r2 #0 ;total number of tokens
@@ -150,9 +148,9 @@ mov bam #1
 
     #region Example Program
     public static readonly NadeBasic ExampleProgram = Parse(@"
-:For (I,0,3
-:End
-:Explode
+FOR I = 0 TO 3
+END
+EXPLODE
 ");
     #endregion
 }

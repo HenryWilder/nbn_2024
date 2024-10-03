@@ -8,7 +8,7 @@ public partial class Customizer : GrenadeBase
 
     public override void _Ready()
     {
-        Insert(NadeBasic.ExampleProgram); // todo: have user insert a ROM manually
+        Insert(NadeSy.ExampleSy); // todo: have user insert a ROM manually
     }
 
     public override void _Process(double delta)
@@ -19,7 +19,7 @@ public partial class Customizer : GrenadeBase
         try {
             device.Step();
         } catch (Exception e) {
-            GD.PrintErr($"Error: {e}\nInitiating self-destruct.");
+            GD.PrintErr($"Emulator error: {e.Message}\nInitiating self-destruct.");
             device.cpu.reg.Bam = 1;
         }
         if (device.cpu.reg.Bam != 0) {

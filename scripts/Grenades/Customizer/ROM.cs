@@ -109,7 +109,7 @@ public class ROM
     public int NumLines => data.numLines;
 
     #region Parse from string
-    public static ROM Compile(string code)
+    public static ROM Parse(string code)
     {
         GD.Print($"Compiling source code:\n```\n{code}\n```");
 
@@ -215,7 +215,7 @@ public class ROM
     }
 
     #region Example ROM
-    public static readonly ROM ExampleROM = Compile(@"
+    public static readonly ROM ExampleROM = Parse(@"
 mov r0 #2        ;set the timer to repeat 2 times
                  ;note that reps are not a measure of time
 .timer:          ;define a spot to jump back to later

@@ -5,23 +5,12 @@ using static Device.CPU.Instruction;
 
 public class Device
 {
-    public Device()
-    {
-        cpu = new CPU(this);
-    }
+    public Device() {}
 
     #region CPU
     public struct CPU
     {
-        public CPU(Device owner)
-        {
-            device = owner;
-        }
-
-        /// <summary>
-        /// The device this CPU is contained in
-        /// </summary>
-        private readonly Device device;
+        public CPU() {}
 
         #region Instruction
         public enum Instruction : byte
@@ -257,6 +246,7 @@ public class Device
             }
         }
         private ProgramStatus status = new();
+        public int CurrentLine => status.PC;
         #endregion
 
         #region Stack
@@ -265,9 +255,8 @@ public class Device
         #endregion
 
         #region Step
-        public void Step()
+        public void Execute(ROM.Line line)
         {
-            ROM.Line line = device.rom[status.PC];
             GD.Print($"{reg.Tms}ms: Running line {status.PC}: \"{line}\"");
             short arg1 = reg[line.opcode.IsArg1Immediate, line.arg1];
             short arg2 = reg[line.opcode.IsArg2Immediate, line.arg2];
@@ -337,7 +326,7 @@ public class Device
         }
         #endregion
     }
-    public CPU cpu; // assigned in ctor because CPU needs access to `this`
+    public CPU cpu = new();
     #endregion
 
     #region RAM
@@ -392,6 +381,10 @@ public class Device
 
     #region ROM
     public ROM rom = null;
+
+    public void Step() {
+        cpu.Execute(rom[cpu.CurrentLine]);
+    }
 
     public bool IsRomInserted()
     {

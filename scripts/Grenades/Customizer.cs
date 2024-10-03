@@ -18,7 +18,7 @@ public partial class Customizer : GrenadeBase
     {
         device.cpu.reg.Tms = (short)(Time.GetTicksMsec() - startTime);
         try {
-            device.cpu.Step();
+            device.Step();
         } catch (Exception e) {
             GD.PrintErr($"Error: {e}\nInitiating self-destruct.");
             device.cpu.reg.Bam = 1;

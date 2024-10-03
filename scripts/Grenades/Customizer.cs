@@ -15,7 +15,7 @@ public partial class Customizer : GrenadeBase
 
     public override void _Process(double delta)
     {
-        device.sensors.tms = (ushort)(Time.GetTicksMsec() - startTime);
+        device.cpu.reg.Tms = (short)(Time.GetTicksMsec() - startTime);
         device.cpu.Step();
     }
 
@@ -23,16 +23,17 @@ public partial class Customizer : GrenadeBase
     {
         const float MILLI = 1.0f / 1000.0f;
         base._PhysicsProcess(delta);
-        device.sensors.vel = (ushort)(LinearVelocity.Length() * MILLI);
+        device.cpu.reg.Vel = (short)(LinearVelocity.Length() * MILLI);
     }
 
     protected override void OnHit(Node other)
     {
-        device.sensors.hit = 1; // todo: think of a clever use for the other 15 bits
+        device.cpu.reg.Hit = 1; // todo: think of a clever use for the other 15 bits
     }
 
     public ROM Insert(ROM rom)
     {
+        GD.Print($"Inserting ROM:\n{rom}");
         (var old, device.rom) = (device.rom, rom);
         return old;
     }

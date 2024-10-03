@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Godot;
 using static Device.CPU.Instruction;
 
 public class Device
@@ -95,7 +96,7 @@ public class Device
             }
 
             [FieldOffset(0)]
-            public readonly ushort data;
+            private readonly ushort data;
 
             public readonly Instruction Operation => (Instruction)(data & INSTRUCTION_BITMASK);
             public readonly bool IsArg1Immediate => (data & ARG1_IS_IMMEDIATE_BIT) != 0;
@@ -103,24 +104,76 @@ public class Device
         }
         #endregion
 
-        private unsafe struct Registers {
-            private fixed short registers[4];
+        #region Registers
+        public unsafe struct Registers
+        {
+            public Registers() { }
 
-            public readonly short this[bool isImmediate, short index]
-            {
-                get => isImmediate ? index : registers[index];
+            private const int NUM_GP_REGISTERS = 4;
+            private const int TMS_INDEX = NUM_GP_REGISTERS + 0;
+            private const int VEL_INDEX = NUM_GP_REGISTERS + 1;
+            private const int HIT_INDEX = NUM_GP_REGISTERS + 2;
+            private const int PRX_INDEX = NUM_GP_REGISTERS + 3;
+            private const int BAM_INDEX = NUM_GP_REGISTERS + 4;
+            private const int NUM_SPEC_REGISTERS = 5;
+
+            private fixed short data[NUM_GP_REGISTERS + NUM_SPEC_REGISTERS];
+
+            #region Specialized Registers
+
+            /// <summary> Time since thrown (milliseconds) </summary>
+            public short Tms { readonly get => data[TMS_INDEX]; set => data[TMS_INDEX] = value; }
+
+            /// <summary> Speed (milliunits/second) </summary>
+            public short Vel { readonly get => data[VEL_INDEX]; set => data[VEL_INDEX] = value; }
+
+            /// <summary> Impact </summary>
+            public short Hit { readonly get => data[HIT_INDEX]; set => data[HIT_INDEX] = value; }
+
+            /// <summary> Proximity </summary>
+            public short Prx { readonly get => data[PRX_INDEX]; set => data[PRX_INDEX] = value; }
+
+            /// <summary> Detonate </summary>
+            public short Bam { readonly get => data[BAM_INDEX]; set => data[BAM_INDEX] = value; }
+
+            #endregion
+
+            public readonly short this[bool isImmediate, short index] {
+                get => isImmediate ? index : data[index];
             }
 
-            // it is illegal to set immediate
-            public short this[short index]
+            // it is illegal to assign to immediate
+            public short this[short index] {
+                set => data[index] = value;
+            }
+
+            /// <summary>
+            /// Associates register names with the arg value needed to access that register
+            /// </summary>
+            public static short Lookup(string name)
             {
-                set => registers[index] = value;
+                switch (name) {
+                    case "r0": return 0;
+                    case "r1": return 1;
+                    case "r2": return 2;
+                    case "r3": return 3;
+                    case "tms": return TMS_INDEX;
+                    case "vel": return VEL_INDEX;
+                    case "hit": return HIT_INDEX;
+                    case "prx": return PRX_INDEX;
+                    case "bam": return BAM_INDEX;
+
+                    default:
+                        GD.PrintErr($"\"{name}\" is not a valid register address");
+                        return -69;
+                }
             }
         }
         /// <summary>
         /// General-purpose registers
         /// </summary>
-        private Registers reg = new();
+        public Registers reg = new();
+        #endregion
 
         #region Status Register
         private struct ProgramStatus
@@ -211,18 +264,6 @@ public class Device
         private int SP = 0; // todo
         #endregion
 
-        /// <summary>
-        /// Associates register names with the arg value needed to access that register
-        /// </summary>
-        public static int RegisterIndex(string name)
-            => name switch {
-                "r0" => 0,
-                "r1" => 1,
-                "r2" => 2,
-                "r3" => 3,
-                _ => -1,
-            };
-
         #region Step
         public void Step()
         {
@@ -285,7 +326,7 @@ public class Device
         }
         #endregion
     }
-    public readonly CPU cpu; // assigned in ctor because CPU needs access to `this`
+    public CPU cpu; // assigned in ctor because CPU needs access to `this`
     #endregion
 
     #region RAM
@@ -336,27 +377,6 @@ public class Device
         }
     }
     public RAM ram = new();
-    #endregion
-
-    #region Sensor Array
-    public struct SensorArray
-    {
-        /// <summary> Time since thrown (milliseconds) </summary>
-        public ushort tms;
-
-        /// <summary> Speed (milliunits/second) </summary>
-        public ushort vel;
-
-        /// <summary> Impact </summary>
-        public short hit;
-
-        /// <summary> Proximity </summary>
-        public short prx;
-
-        /// <summary> Detonate </summary>
-        public bool bam;
-    }
-    public SensorArray sensors = new();
     #endregion
 
     #region ROM

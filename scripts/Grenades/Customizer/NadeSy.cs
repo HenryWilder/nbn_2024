@@ -206,7 +206,8 @@ public static class NadeSy
         /// <summary> <c>()</c> </summary>
         Expression,
         /// <summary>
-        /// Implied by there being a <c>Statement</c>/<c>SoftStatement</c> scope.<br/>
+        /// Basically an item in a list.
+        /// Implied by there being a <c>SoftStmt</c>/<c>Expression</c> scope.<br/>
         /// Separated by <c>,</c> and popped automatically when popping out of a containing scope.
         /// </summary>
         SoftExpr,
@@ -214,6 +215,7 @@ public static class NadeSy
         /// <summary> <c>{}</c> </summary>
         Statement,
         /// <summary>
+        /// Basically a "line".
         /// Implied by there being a <c>Statement</c> scope.<br/>
         /// Separated by <c>;</c> and popped automatically when popping out of a containing scope.
         /// </summary>
@@ -325,6 +327,10 @@ public static class NadeSy
                         throw new SyntaxErrorException($"Cannot pop {tag} scope when current scope is {CurrentScope.tag}");
                     }
                     scopeStack.Pop();
+                }
+                // closing a statement implicitly ends the soft statement
+                if (tags.First() is ScopeType.Statement && CurrentScope.tag == ScopeType.SoftExpr) {
+                    PopScope(ScopeType.SoftStmt);
                 }
             }
 

@@ -14,6 +14,7 @@ public static class NadeSy
         {
             _ when char.IsDigit(word[0])
                 => new NumLiteral(short.Parse(word)),
+
             "else if"
                 => new Keyword(Kw.ElseIf),
             "if"
@@ -30,18 +31,20 @@ public static class NadeSy
                 => new Keyword(Kw.Let),
             "const"
                 => new Keyword(Kw.Const),
+
             _ when char.IsLetter(word[0]) || word[0] == '_'
                 => new Variable(word),
+
             "+"
                 => new Operator(Op.Add),
             "-"
-                => new Operator(Op.Sub),
+                => new Operator(Op.Subtract),
             "*"
-                => new Operator(Op.Mul),
+                => new Operator(Op.Multiply),
             "/"
-                => new Operator(Op.Div),
+                => new Operator(Op.Divide),
             "%"
-                => new Operator(Op.Rem),
+                => new Operator(Op.Remainder),
             "&"
                 => new Operator(Op.BitAnd),
             "|"
@@ -53,13 +56,13 @@ public static class NadeSy
             "+="
                 => new Operator(Op.AddAssign),
             "-="
-                => new Operator(Op.SubAssign),
+                => new Operator(Op.SubtractAssign),
             "*="
-                => new Operator(Op.MulAssign),
+                => new Operator(Op.MultiplyAssign),
             "/="
-                => new Operator(Op.DivAssign),
+                => new Operator(Op.DivideAssign),
             "%="
-                => new Operator(Op.RemAssign),
+                => new Operator(Op.RemainderAssign),
             "&="
                 => new Operator(Op.BitAndAssign),
             "|="
@@ -75,19 +78,19 @@ public static class NadeSy
             "="
                 => new Operator(Op.Assign),
             "=="
-                => new Operator(Op.Eq),
+                => new Operator(Op.Equal),
             "!="
-                => new Operator(Op.Ne),
+                => new Operator(Op.NotEqual),
             ">"
-                => new Operator(Op.Gt),
+                => new Operator(Op.Greater),
             ">="
-                => new Operator(Op.Ge),
+                => new Operator(Op.GreaterOrEqual),
             "<"
-                => new Operator(Op.Lt),
+                => new Operator(Op.LessThan),
             "<="
-                => new Operator(Op.Le),
+                => new Operator(Op.LessOrEqual),
             "=>"
-                => new Operator(Op.Implies),
+                => new Operator(Op.FatArrow),
             ".."
                 => new Operator(Op.Range),
             ","
@@ -106,9 +109,12 @@ public static class NadeSy
                 => new ScopeControl(ScopeType.Subscript, ScopeDirection.Push),
             "]"
                 => new ScopeControl(ScopeType.Subscript, ScopeDirection.Pop),
-            _
-                => throw new NotImplementedException($"Unknown token: \"{word}\""),
+
+            _ => throw new NotImplementedException($"Unknown token: \"{word}\""),
         };
+
+        protected static string Format(string tag, string valueColor, object value)
+            => $"[color=#4ec9b0]{tag}[/color]([color={valueColor}]{value}[/color])";
     }
 
     #region Keyword
@@ -126,7 +132,7 @@ public static class NadeSy
     class Keyword(Kw kw) : IToken
     {
         public Kw kw = kw;
-        public override string ToString() => $"[color=#4ec9b0]kw[/color]([color=#c586c0]{kw}[/color])";
+        public override string ToString() => IToken.Format("kw", "#c586c0", kw);
     }
     #endregion
 
@@ -134,7 +140,7 @@ public static class NadeSy
     class Variable(string name) : IToken
     {
         public string name = name;
-        public override string ToString() => $"[color=#4ec9b0]var[/color]([color=#9cdcfe]{name}[/color])";
+        public override string ToString() => IToken.Format("var", "#9cdcfe", name);
     }
 
     #endregion
@@ -144,7 +150,7 @@ public static class NadeSy
     class NumLiteral(short value) : IToken
     {
         public short value = value;
-        public override string ToString() => $"[color=#4ec9b0]num[/color]([color=#b5cea8]{value}[/color])";
+        public override string ToString() => IToken.Format("num", "#b5cea8", value);
     }
     #endregion
 
@@ -154,13 +160,13 @@ public static class NadeSy
         /// <summary> <c>+</c> </summary>
         Add,
         /// <summary> <c>-</c> </summary>
-        Sub,
+        Subtract,
         /// <summary> <c>*</c> </summary>
-        Mul,
+        Multiply,
         /// <summary> <c>/</c> </summary>
-        Div,
+        Divide,
         /// <summary> <c>%</c> </summary>
-        Rem,
+        Remainder,
         /// <summary> <c>&</c> </summary>
         BitAnd,
         /// <summary> <c>|</c> </summary>
@@ -172,13 +178,13 @@ public static class NadeSy
         /// <summary> <c>+=</c> </summary>
         AddAssign,
         /// <summary> <c>-=</c> </summary>
-        SubAssign,
+        SubtractAssign,
         /// <summary> <c>*=</c> </summary>
-        MulAssign,
+        MultiplyAssign,
         /// <summary> <c>/=</c> </summary>
-        DivAssign,
+        DivideAssign,
         /// <summary> <c>%=</c> </summary>
-        RemAssign,
+        RemainderAssign,
         /// <summary> <c>&=</c> </summary>
         BitAndAssign,
         /// <summary> <c>|=</c> </summary>
@@ -194,26 +200,26 @@ public static class NadeSy
         /// <summary> <c>=</c> </summary>
         Assign,
         /// <summary> <c>==</c> </summary>
-        Eq,
+        Equal,
         /// <summary> <c>!=</c> </summary>
-        Ne,
+        NotEqual,
         /// <summary> <c>></c> </summary>
-        Gt,
+        Greater,
         /// <summary> <c>>=</c> </summary>
-        Ge,
+        GreaterOrEqual,
         /// <summary> <c><</c> </summary>
-        Lt,
+        LessThan,
         /// <summary> <c><=</c> </summary>
-        Le,
+        LessOrEqual,
         /// <summary> <c>=></c> </summary>
-        Implies,
+        FatArrow,
         /// <summary> <c>..</c> </summary>
         Range,
     }
     class Operator(Op op) : IToken
     {
         public Op op = op;
-        public override string ToString() => $"[color=#4ec9b0]op[/color]([color=#dcdcaa]{op}[/color])";
+        public override string ToString() => IToken.Format("op", "#dcdcaa", op);
     }
     #endregion
 
@@ -251,6 +257,24 @@ public static class NadeSy
         /// </summary>
         Statement,
     }
+    static string FormatScope(ScopeType tag, string inner = "")
+    {
+        var(color, open, close) = tag switch {
+            ScopeType.Expression
+                => ("#ffd700", "(", ")"),
+            ScopeType.Inline
+                => ("#d7ba7d", "#(", ")"),
+            ScopeType.Subscript
+                => ("#da70d6", "[", "]"),
+            ScopeType.Statement
+                => ("#179fff", ":[", "];"),
+            ScopeType.Scope
+                => ("#da70d6", "{", "}"),
+
+            _ => throw new NotImplementedException(),
+        };
+        return $"[color={color}]{open}[/color]{inner}[color={color}]{close}[/color]";
+    }
     enum ScopeDirection
     {
         Push,
@@ -260,7 +284,16 @@ public static class NadeSy
     {
         public ScopeType tag = tag;
         public ScopeDirection dir = dir;
-        public override string ToString() => $"[color=#4ec9b0]scope[/color]([color=#4fc1ff]{tag}.{dir}[/color])";
+        public override string ToString()
+            => IToken.Format("scope", "#dcdcaa", FormatScope(tag,
+                "[color=#4fc1ff]" +
+                (dir switch {
+                    ScopeDirection.Push => '+',
+                    ScopeDirection.Pop => '-',
+                    _ => throw new NotImplementedException(),
+                }) +
+                "[/color]"
+            ));
     }
     #endregion
 
@@ -377,26 +410,23 @@ public static class NadeSy
                 if (what is T item) return item;
                 else throw new SyntaxErrorException($"{what} is not valid in {Tag}");
             }
-            public abstract void Push(INode what);
+            public abstract void Add(INode what);
 
             protected string InnerString()
             {
                 string inner = string.Join("", Items.Select(x => $"\n{x},")).Replace("\n", "\n  ");
                 return !string.IsNullOrEmpty(inner) ? inner + '\n' : string.Empty;
             }
-            public abstract string Identifier(string content);
             public override string ToString()
-                => Identifier(InnerString());
+                => FormatScope(Tag, InnerString());
         }
 
         public class SubExpr(ScopeType tag) : Layer, IExprItem
         {
             public override ScopeType Tag => tag;
             public override IEnumerable<INode> Items => items;
-            public override void Push(INode what) => items.Add(TryCast<IExprItem>(what));
+            public override void Add(INode what) => items.Add(TryCast<IExprItem>(what));
             public readonly List<IExprItem> items = [];
-            public override string Identifier(string content)
-                => $"[color=#ffd700]([/color]{content}[color=#ffd700])[/color]";
         }
 
         // A statement can contain anything
@@ -404,22 +434,24 @@ public static class NadeSy
         {
             public override ScopeType Tag => ScopeType.Statement;
             public override IEnumerable<INode> Items => items;
-            public override void Push(INode what) => items.Add(what);
+            public override void Add(INode what) => items.Add(what);
             public readonly List<INode> items = [];
-
-            public override string Identifier(string content)
-                => $"[color=#179fff]:[[/color]{content}[color=#179fff]];[/color]";
+            public string ToLineString()
+            {
+                string inner = string.Join(", ", Items.Select(x => x is Scope
+                    ? FormatScope(ScopeType.Scope, "[color=#6a9955]...[/color]")
+                    : x.ToString()
+                ));
+                return FormatScope(Tag, inner);
+            }
         }
 
         public class Scope : Layer
         {
             public override ScopeType Tag => ScopeType.Scope;
             public override IEnumerable<INode> Items => items;
-            public override void Push(INode what) => items.Add(TryCast<Statement>(what));
+            public override void Add(INode what) => items.Add(TryCast<Statement>(what));
             public readonly List<Statement> items = [];
-
-            public override string Identifier(string content)
-                => $"[color=#da70d6]{{[/color]{content}[color=#da70d6]}}[/color]";
         }
 
         public readonly Scope globalScope = new();
@@ -441,17 +473,20 @@ public static class NadeSy
 
             public Layer CurrentScope => scopeStack.First().Item1;
 
-            private static string PathFormat<T, U>(IEnumerable<T> path, Func<T, (Layer, U)> splitter) =>
+            private static string PathFormat<T, U>(IEnumerable<T> path, Func<T, (ScopeType, U)> splitter) =>
                 string.Join("->", path.Select((x) => {
                     var (layer, inner) = splitter(x);
-                    return layer.Identifier(inner.ToString());
+                    return FormatScope(layer, inner.ToString());
                 }));
 
-            private static string PathFormat<T>(IEnumerable<T> path, Func<T, Layer> splitter) =>
+            private static string PathFormat<T>(IEnumerable<T> path, Func<T, ScopeType> splitter) =>
                 PathFormat(path, x => (splitter(x), string.Empty));
 
+            private static string PathFormat(IEnumerable<ScopeType> path) =>
+                PathFormat(path, x => (x, string.Empty));
+
             private string StackPath =>
-                PathFormat(scopeStack.AsEnumerable().Reverse(), (layer) => (layer.Item1, layer.Item2));
+                PathFormat(scopeStack.AsEnumerable().Reverse(), (layer) => (layer.Item1.Tag, layer.Item2));
 
             private static ScopeType[] ImpliedPath(ScopeType tag)
                 => tag switch
@@ -469,7 +504,7 @@ public static class NadeSy
             {
                 GD.PrintRich($"{StackPath} += {token}");
                 Atom newAtom = new(token);
-                CurrentScope.Push(newAtom);
+                CurrentScope.Add(newAtom);
             }
 
             private void PushScopes(ScopeType[] tags)
@@ -478,7 +513,7 @@ public static class NadeSy
                 {
                     var newScope = Layer.MakeFrom(tag);
                     int i = CurrentScope.Items.Count(x => x is Layer);
-                    CurrentScope.Push(newScope);
+                    CurrentScope.Add(newScope);
                     scopeStack.Push((newScope, i));
                 }
             }
@@ -508,14 +543,14 @@ public static class NadeSy
             public void PushScope(ScopeType tag)
             {
                 var path = ImpliedPath(tag);
-                GD.PrintRich($"{StackPath} += {PathFormat(path, Layer.MakeFrom)}");
+                GD.PrintRich(StackPath + " += " + PathFormat(path));
                 PushScopes(path);
             }
 
             public void PopScope(ScopeType tag)
             {
                 var path = ImpliedPath(tag);
-                GD.PrintRich($"{StackPath} -= {PathFormat(path, Layer.MakeFrom)}");
+                GD.PrintRich(StackPath + " -= " + PathFormat(path));
                 PopScopes(path);
             }
 
@@ -582,37 +617,53 @@ public static class NadeSy
 
     private static IEnumerable<IConcoction> Concoct(TokenTree tree)
     {
+        static T ExtractNext<T>(ref IEnumerable<T> iter)
+        {
+            var item = iter.FirstOrDefault();
+            iter = iter.Skip(1);
+            return item;
+        }
+        static IEnumerable<T> Extract<T>(ref IEnumerable<T> iter, int n)
+        {
+            var subset = iter.Take(n);
+            iter = iter.Skip(n);
+            return subset;
+        }
+        static IEnumerable<T> ExtractWhile<T>(ref IEnumerable<T> iter, Func<T, bool> pred)
+        {
+            var subset = iter.TakeWhile(pred);
+            iter = iter.Skip(subset.Count());
+            return subset;
+        }
+
+        static IEnumerable<TokenTree.INode> ExtractCondition(ref IEnumerable<TokenTree.INode> iter)
+        {
+            var cond = ExtractWhile(ref iter, x => x is not TokenTree.Scope);
+            if (cond.Any()) return cond;
+            throw new SyntaxErrorException("If statement must ask something");
+        }
+        static TokenTree.Scope ExtractScope(ref IEnumerable<TokenTree.INode> iter)
+        {
+            if (ExtractNext(ref iter) is TokenTree.Scope then) return then;
+            throw new SyntaxErrorException("If statement must do something");
+        }
+
         List<IConcoction> items = [];
         foreach (var statement in tree.globalScope.items)
         {
-            GD.PrintRich(statement);
+            GD.Print(); // gap
+            GD.PrintRich(statement.ToLineString());
             IEnumerable<TokenTree.INode> iter = statement.items;
-            switch (iter.FirstOrDefault())
+            switch (ExtractNext(ref iter))
             {
                 case TokenTree.Atom { token: Keyword { kw: var kw } }:
-                    static IEnumerable<TokenTree.INode> RipConditionOutOf(ref IEnumerable<TokenTree.INode> iter)
-                    {
-                        var cond = iter.TakeWhile(x => x is not TokenTree.Scope);
-                        int num = cond.Count();
-                        if (num == 0)
-                            throw new SyntaxErrorException("If statement must ask something");
-                        iter = iter.Skip(num);
-                        return cond;
-                    }
-                    static TokenTree.Scope RipScopeOutOf(ref IEnumerable<TokenTree.INode> iter)
-                    {
-                        if (iter.FirstOrDefault() is not TokenTree.Scope then)
-                            throw new SyntaxErrorException("If statement must do something");
-                        iter = iter.Skip(1);
-                        return then;
-                    }
                     switch (kw) {
                         case Kw.If:
                             {
-                                GD.PrintRich("If statement");
-                                var cond = RipConditionOutOf(ref iter);
-                                GD.PrintRich($"{cond.Count()} token condition: {string.Join(',',cond)}");
-                                var then = RipScopeOutOf(ref iter);
+                                GD.Print("If statement");
+                                var cond = ExtractCondition(ref iter);
+                                GD.PrintRich($"{cond.Count()} token condition: [{string.Join(", ",cond)}]");
+                                var then = ExtractScope(ref iter);
                                 GD.PrintRich($"if true: {then}");
                                 items.Add(new Conditional() {
                                     condThen = { (cond, then) }
@@ -621,9 +672,31 @@ public static class NadeSy
                             break;
 
                         case Kw.ElseIf:
+                            {
+                                GD.Print("ElseIf statement");
+                                if (items.LastOrDefault() is Conditional conditional)
+                                {
+                                    var cond = ExtractCondition(ref iter);
+                                    GD.PrintRich($"{cond.Count()} token condition: [{string.Join(", ",cond)}]");
+                                    var then = ExtractScope(ref iter);
+                                    GD.PrintRich($"if true: {then}");
+                                    conditional.condThen.Add((cond, then));
+                                }
+                                else throw new SyntaxErrorException("'else' cannot start a statement");
+                            }
                             break;
 
                         case Kw.Else:
+                            {
+                                GD.Print("Else statement");
+                                if (items.LastOrDefault() is Conditional conditional)
+                                {
+                                    var then = ExtractScope(ref iter);
+                                    GD.PrintRich($"else: {then}");
+                                    conditional.ifNone = then;
+                                }
+                                else throw new SyntaxErrorException("'else' cannot start a statement");
+                            }
                             break;
 
                         default:
@@ -673,11 +746,11 @@ public static class NadeSy
     public static readonly ROM ExampleSy = Compile(@"
 let a = 5;
 if a == 3 {
-    // :3
+    b = 7
 } else if a == 6 {
-    // :3
+    b = 2
 } else {
-    // :3
+    b = 8
 }
 const NUM_LOOPS = 4;
 for (i in 0..NUM_LOOPS /* loop from 0 to NUM_LOOPS (i.e. 4) */) {

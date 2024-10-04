@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -8,8 +7,11 @@ using Godot;
 
 public static class NadeSy
 {
-    interface IToken {
-        public static IToken ParseWord(string word) => word switch {
+    #region Token
+    interface IToken
+    {
+        public static IToken ParseWord(string word) => word switch
+        {
             _ when char.IsDigit(word[0])
                 => new NumLiteral(short.Parse(word)),
             "if"
@@ -107,6 +109,8 @@ public static class NadeSy
         };
     }
 
+    #region Keyword
+
     public enum Kw
     {
         If,
@@ -123,17 +127,29 @@ public static class NadeSy
         public override string ToString() => $"kw({value})";
     }
 
+    #endregion
+
+    #region Variable
+
     class Variable(string name) : IToken
     {
         public string name = name;
         public override string ToString() => $"var({name})";
     }
 
+    #endregion
+
+    #region Numeric Literal
+
     class NumLiteral(short value) : IToken
     {
         public short value = value;
         public override string ToString() => $"num({value})";
     }
+
+    #endregion
+
+    #region Operator
 
     public enum Op
     {
@@ -202,6 +218,9 @@ public static class NadeSy
         public override string ToString() => $"op({op})";
     }
 
+    #endregion
+
+    #region Scope
     enum ScopeType
     {
         /// <summary>
@@ -246,7 +265,81 @@ public static class NadeSy
         public ScopeDirection dir = dir;
         public override string ToString() => $"scope({tag}.{dir})";
     }
+    #endregion
 
+    #endregion
+
+    #region Tokenizer
+    private static readonly Regex rxComments = new(
+        @"//.*?\n|/\*.*?\*/",
+        RegexOptions.Compiled);
+    private static readonly Regex rxExcessSpaces = new(
+        @"\s{2,}",
+        RegexOptions.Compiled);
+
+    // language=regex
+    private static readonly string RX_KEYWORD_STR = string.Join('|', Enum.GetNames<Kw>());
+
+    // language=regex
+    private const string RX_VARNAME_STR = @"[a-zA-Z_][a-zA-Z_0-9]*";
+
+    // language=regex
+    private const string RX_NUM_LITERAL_STR = @"[0-9]+";
+
+    // language=regex
+    private const string RX_SCOPING_STR = @"[(){}[\]]";
+
+    // language=regex
+    private static readonly string RX_OPERATOR_STR = string.Join('|', [
+        @"\.\.",
+        @"<<", @">>", @"&&", @"\|\|", @"=>",
+        @"[-+*/%=!><^|&]=",
+        @"[-+*/%=!><^|&~;]"
+    ]);
+
+    private static readonly Regex rxTokenize = new(
+        @$"\b(?:{RX_KEYWORD_STR}|{RX_VARNAME_STR}|{RX_NUM_LITERAL_STR})\b|{RX_SCOPING_STR}|{RX_OPERATOR_STR}",
+        RegexOptions.Compiled);
+
+    private static IToken[] Tokenize(string code)
+    {
+        code = rxComments.Replace(code, "");
+        code = code.Replace('\n', ' ');
+        code = rxExcessSpaces.Replace(code, " ");
+        return rxTokenize
+            .Matches(code)
+            .Select(IToken (match, i) =>
+            {
+                string word = match.Value;
+                try
+                {
+                    var token = IToken.ParseWord(word);
+                    GD.Print($"word {i}: \"{word}\" => {token}");
+                    return token;
+                }
+                catch
+                {
+                    GD.Print($"word {i}: [err]");
+                    throw;
+                }
+            })
+            .ToArray();
+    }
+    #endregion
+
+    #region Parser
+
+    private static TokenTree Parse(IEnumerable<IToken> tokens)
+    {
+        TokenTree.Builder builder = new();
+        foreach (var token in tokens)
+        {
+            builder.PushToken(token);
+        }
+        return builder.Build();
+    }
+
+    #region Token Tree
     class TokenTree
     {
         public interface INode { }
@@ -273,7 +366,7 @@ public static class NadeSy
             public abstract ScopeType Tag { get; }
             public abstract IEnumerable<INode> Items { get; }
 
-            protected T TryCast<T>(INode what) where T: INode
+            protected T TryCast<T>(INode what) where T : INode
             {
                 if (what is T item) return item;
                 else throw new SyntaxErrorException($"{what} is not valid in {Tag}");
@@ -296,6 +389,8 @@ public static class NadeSy
             public override IEnumerable<INode> Items => items;
             public override void Push(INode what) => items.Add(TryCast<IExprItem>(what));
             public readonly List<IExprItem> items = [];
+            public override string ToString()
+                => $"({InnerString()})";
         }
 
         // A statement can contain anything
@@ -322,7 +417,9 @@ public static class NadeSy
 
         public override string ToString() => globalScope.ToString();
 
-        public class Builder {
+        #region Builder
+        public class Builder
+        {
             public Builder()
             {
                 tree = new();
@@ -338,7 +435,8 @@ public static class NadeSy
             private string StackPath => string.Join('.', scopeStack.AsEnumerable().Reverse().Select(layer => $"{layer.Item1.Tag}{layer.Item2}"));
 
             private static ScopeType[] ImpliedPath(ScopeType tag)
-                => tag switch {
+                => tag switch
+                {
                     ScopeType.Scope
                         => [tag, ScopeType.Statement],
 
@@ -388,7 +486,8 @@ public static class NadeSy
                     scopeStack.Pop();
                 }
                 // closing a statement implicitly ends the soft statement
-                if (tags.First() is ScopeType.Scope && CurrentScope.Tag == ScopeType.Statement) {
+                if (tags.First() is ScopeType.Scope && CurrentScope.Tag == ScopeType.Statement)
+                {
                     PopScope(ScopeType.Statement);
                 }
             }
@@ -396,7 +495,7 @@ public static class NadeSy
             public void PopScope(ScopeType tag)
             {
                 var path = ImpliedPath(tag);
-                GD.Print($"{StackPath} -= {string.Join('.',path)}");
+                GD.Print($"{StackPath} -= {string.Join('.', path)}");
                 PopScopes(path);
             }
 
@@ -406,9 +505,10 @@ public static class NadeSy
                 if (missing.Length > 0) PushScopes(missing);
                 if (token is ScopeControl { tag: var tag, dir: var dir })
                 {
-                    switch (dir) {
+                    switch (dir)
+                    {
                         case ScopeDirection.Push: PushScope(tag); break;
-                        case ScopeDirection.Pop:  PopScope(tag);  break;
+                        case ScopeDirection.Pop: PopScope(tag); break;
                     }
                 }
                 else
@@ -419,84 +519,41 @@ public static class NadeSy
 
             public TokenTree Build() => tree;
         }
+        #endregion
     }
+    #endregion
 
-    private static readonly Regex rxComments = new(
-        @"//.*?\n|/\*.*?\*/",
-        RegexOptions.Compiled);
-    private static readonly Regex rxExcessSpaces = new(
-        @"\s{2,}",
-        RegexOptions.Compiled);
+    #endregion
 
-    // language=regex
-    private static readonly string RX_KEYWORD_STR = string.Join('|', Enum.GetNames<Kw>());
+    #region Concoctor
+    private static object Concoct(TokenTree tree)
+    {
+        foreach (var statement in tree.globalScope.items)
+        {
+            GD.Print(statement);
+        }
+        return null;
+    }
+    #endregion
 
-    // language=regex
-    private const string RX_VARNAME_STR = @"[a-zA-Z_][a-zA-Z_0-9]*";
-
-    // language=regex
-    private const string RX_NUM_LITERAL_STR = @"[0-9]+";
-
-    // language=regex
-    private const string RX_SCOPING_STR = @"[(){}[\]]";
-
-    // language=regex
-    private static readonly string RX_OPERATOR_STR = string.Join('|', [
-        @"\.\.",
-        @"<<", @">>", @"&&", @"\|\|", @"=>",
-        @"[-+*/%=!><^|&]=",
-        @"[-+*/%=!><^|&~;]"
-    ]);
-
-    private static readonly Regex rxTokenize = new(
-        @$"\b(?:{RX_KEYWORD_STR}|{RX_VARNAME_STR}|{RX_NUM_LITERAL_STR})\b|{RX_SCOPING_STR}|{RX_OPERATOR_STR}",
-        RegexOptions.Compiled);
-
+    #region Compiler
     public static ROM Compile(string code)
     {
+        GD.Print($"Compiling source code:\n```\n{code}\n```");
         try
         {
-            GD.Print($"Compiling source code:\n```\n{code}\n```");
-            code = rxComments.Replace(code, "");
-            code = code.Replace('\n', ' ');
-            code = rxExcessSpaces.Replace(code, " ");
             GD.Print("Tokenizing...");
-            var tokens = rxTokenize
-                .Matches(code)
-                .Select(IToken (match, i) =>
-                {
-                    string word = match.Value;
-                    try
-                    {
-                        var token = IToken.ParseWord(word);
-                        GD.Print($"word {i}: \"{word}\" => {token}");
-                        return token;
-                    }
-                    catch
-                    {
-                        GD.Print($"word {i}: [err]");
-                        throw;
-                    }
-                })
-                .ToArray();
+            var tokens = Tokenize(code);
 
             GD.Print("Building token tree...");
-            TokenTree.Builder builder = new();
-            foreach (var token in tokens)
-            {
-                GD.Print($"Token: {token}");
-                builder.PushToken(token);
-            }
-            var tree = builder.Build();
+            var tree = Parse(tokens);
             GD.Print($"Generated token tree:\n{tree}\n");
 
-            GD.Print("Identifying patterns...");
-            foreach (var statement in tree.globalScope.items) {
-                GD.Print(statement);
-            }
-            GD.Print($"Generated patterns: [missing]");
+            GD.Print("Concocting...");
+            var concoction = Concoct(tree);
+            GD.Print($"Generated concoction: {concoction}");
 
-            throw new NotImplementedException("todo");
+            throw new NotImplementedException("todo: convert concoction into assembly");
             // return ROM.Parse(";todo");
         }
         catch (Exception e)
@@ -505,7 +562,9 @@ public static class NadeSy
             return null;
         }
     }
+    #endregion
 
+    #region Example ROM
     public static readonly ROM ExampleSy = Compile(@"
 const NUM_LOOPS = 4;
 for i in 0..NUM_LOOPS /* loop from 0 to N (4) */ {
@@ -513,4 +572,5 @@ for i in 0..NUM_LOOPS /* loop from 0 to N (4) */ {
 }
 explode();
 ");
+    #endregion
 }

@@ -10,109 +10,6 @@ public static class NadeSy
     #region Token
     interface IToken
     {
-        public static IToken ParseWord(string word) => word switch
-        {
-            _ when char.IsDigit(word[0])
-                => new NumLiteral(short.Parse(word)),
-
-            "else if"
-                => new Keyword(Kw.ElseIf),
-            "if"
-                => new Keyword(Kw.If),
-            "else"
-                => new Keyword(Kw.Else),
-            "for"
-                => new Keyword(Kw.For),
-            "in"
-                => new Keyword(Kw.In),
-            "while"
-                => new Keyword(Kw.While),
-            "let"
-                => new Keyword(Kw.Let),
-            "const"
-                => new Keyword(Kw.Const),
-
-            _ when char.IsLetter(word[0]) || word[0] == '_'
-                => new Variable(word),
-
-            "+"
-                => new Operator(Op.Add),
-            "-"
-                => new Operator(Op.Subtract),
-            "*"
-                => new Operator(Op.Multiply),
-            "/"
-                => new Operator(Op.Divide),
-            "%"
-                => new Operator(Op.Remainder),
-            "&"
-                => new Operator(Op.BitAnd),
-            "|"
-                => new Operator(Op.BitOr),
-            "^"
-                => new Operator(Op.BitXor),
-            "~"
-                => new Operator(Op.BitNot),
-            "+="
-                => new Operator(Op.AddAssign),
-            "-="
-                => new Operator(Op.SubtractAssign),
-            "*="
-                => new Operator(Op.MultiplyAssign),
-            "/="
-                => new Operator(Op.DivideAssign),
-            "%="
-                => new Operator(Op.RemainderAssign),
-            "&="
-                => new Operator(Op.BitAndAssign),
-            "|="
-                => new Operator(Op.BitOrAssign),
-            "^="
-                => new Operator(Op.BitXorAssign),
-            "&&"
-                => new Operator(Op.LogicAnd),
-            "||"
-                => new Operator(Op.LogicOr),
-            "!"
-                => new Operator(Op.LogicNot),
-            "="
-                => new Operator(Op.Assign),
-            "=="
-                => new Operator(Op.Equal),
-            "!="
-                => new Operator(Op.NotEqual),
-            ">"
-                => new Operator(Op.Greater),
-            ">="
-                => new Operator(Op.GreaterOrEqual),
-            "<"
-                => new Operator(Op.LessThan),
-            "<="
-                => new Operator(Op.LessOrEqual),
-            "=>"
-                => new Operator(Op.FatArrow),
-            ".."
-                => new Operator(Op.Range),
-            ","
-                => new ScopeControl(ScopeType.Inline, ScopeDirection.Pop),
-            ";"
-                => new ScopeControl(ScopeType.Statement, ScopeDirection.Pop),
-            "("
-                => new ScopeControl(ScopeType.Expression, ScopeDirection.Push),
-            ")"
-                => new ScopeControl(ScopeType.Expression, ScopeDirection.Pop),
-            "{"
-                => new ScopeControl(ScopeType.Scope, ScopeDirection.Push),
-            "}"
-                => new ScopeControl(ScopeType.Scope, ScopeDirection.Pop),
-            "["
-                => new ScopeControl(ScopeType.Subscript, ScopeDirection.Push),
-            "]"
-                => new ScopeControl(ScopeType.Subscript, ScopeDirection.Pop),
-
-            _ => throw new NotImplementedException($"Unknown token: \"{word}\""),
-        };
-
         protected static string Format(string tag, string valueColor, object value)
             => $"[color=#4ec9b0]{tag}[/color]([color={valueColor}]{value}[/color])";
     }
@@ -223,6 +120,65 @@ public static class NadeSy
     }
     #endregion
 
+    #region Tokenizer
+    private static readonly Tokenizer<IToken> tokenizer = new(
+        reserved: [
+            ("else if", new Keyword(Kw.ElseIf)),
+            ("if",      new Keyword(Kw.If)),
+            ("else",    new Keyword(Kw.Else)),
+            ("for",     new Keyword(Kw.For)),
+            ("in",      new Keyword(Kw.In)),
+            ("while",   new Keyword(Kw.While)),
+            ("let",     new Keyword(Kw.Let)),
+            ("const",   new Keyword(Kw.Const)),
+            ("+",       new Operator(Op.Add)),
+            ("-",       new Operator(Op.Subtract)),
+            ("*",       new Operator(Op.Multiply)),
+            ("/",       new Operator(Op.Divide)),
+            ("%",       new Operator(Op.Remainder)),
+            ("&",       new Operator(Op.BitAnd)),
+            ("|",       new Operator(Op.BitOr)),
+            ("^",       new Operator(Op.BitXor)),
+            ("~",       new Operator(Op.BitNot)),
+            ("+=",      new Operator(Op.AddAssign)),
+            ("-=",      new Operator(Op.SubtractAssign)),
+            ("*=",      new Operator(Op.MultiplyAssign)),
+            ("/=",      new Operator(Op.DivideAssign)),
+            ("%=",      new Operator(Op.RemainderAssign)),
+            ("&=",      new Operator(Op.BitAndAssign)),
+            ("|=",      new Operator(Op.BitOrAssign)),
+            ("^=",      new Operator(Op.BitXorAssign)),
+            ("&&",      new Operator(Op.LogicAnd)),
+            ("||",      new Operator(Op.LogicOr)),
+            ("!",       new Operator(Op.LogicNot)),
+            ("=",       new Operator(Op.Assign)),
+            ("==",      new Operator(Op.Equal)),
+            ("!=",      new Operator(Op.NotEqual)),
+            (">",       new Operator(Op.Greater)),
+            (">=",      new Operator(Op.GreaterOrEqual)),
+            ("<",       new Operator(Op.LessThan)),
+            ("<=",      new Operator(Op.LessOrEqual)),
+            ("=>",      new Operator(Op.FatArrow)),
+            ("..",      new Operator(Op.Range)),
+            (",",       new ScopeControl(ScopeType.Inline,     ScopeDirection.Pop)),
+            (";",       new ScopeControl(ScopeType.Statement,  ScopeDirection.Pop)),
+            ("(",       new ScopeControl(ScopeType.Expression, ScopeDirection.Push)),
+            (")",       new ScopeControl(ScopeType.Expression, ScopeDirection.Pop)),
+            ("{",       new ScopeControl(ScopeType.Scope,      ScopeDirection.Push)),
+            ("}",       new ScopeControl(ScopeType.Scope,      ScopeDirection.Pop)),
+            ("[",       new ScopeControl(ScopeType.Subscript,  ScopeDirection.Push)),
+            ("]",       new ScopeControl(ScopeType.Subscript,  ScopeDirection.Pop)),
+        ],
+        // language=regex
+        numericLiteral: (@"[0-9]+", (word) => new NumLiteral(short.Parse(word))),
+        // language=regex
+        variableName: (@"[a-zA-Z_][a-zA-Z_0-9]*", (word) => new Variable(word)),
+        // language=regex
+        commentPattern: @"//.*?\n|/\*.*?\*/",
+        isWhitespaceSensitive: false
+    );
+    #endregion
+
     #region Scope
     enum ScopeType
     {
@@ -297,73 +253,6 @@ public static class NadeSy
     }
     #endregion
 
-    #endregion
-
-    #region Tokenizer
-    private static readonly Regex rxComments = new(
-        @"//.*?\n|/\*.*?\*/",
-        RegexOptions.Compiled);
-    private static readonly Regex rxExcessSpaces = new(
-        @"\s{2,}",
-        RegexOptions.Compiled);
-
-    // language=regex
-    private static readonly string RX_KEYWORD_STR = string.Join('|', [
-        @"else if", // must come before `if` and `else`
-        @"if",
-        @"let",
-        @"const",
-        @"else",
-        @"for",
-        @"while",
-        @"in",
-    ]);
-
-    // language=regex
-    private const string RX_VARNAME_STR = @"[a-zA-Z_][a-zA-Z_0-9]*";
-
-    // language=regex
-    private const string RX_NUM_LITERAL_STR = @"[0-9]+";
-
-    // language=regex
-    private const string RX_SCOPING_STR = @"[(){}[\]]";
-
-    // language=regex
-    private static readonly string RX_OPERATOR_STR = string.Join('|', [
-        @"\.\.",
-        @"<<", @">>", @"&&", @"\|\|", @"=>",
-        @"[-+*/%=!><^|&]=",
-        @"[-+*/%=!><^|&~;]"
-    ]);
-
-    private static readonly Regex rxTokenize = new(
-        @$"\b(?:{RX_KEYWORD_STR}|{RX_VARNAME_STR}|{RX_NUM_LITERAL_STR})\b|{RX_SCOPING_STR}|{RX_OPERATOR_STR}|\S",
-        RegexOptions.Compiled);
-
-    private static IToken[] Tokenize(string code)
-    {
-        code = rxComments.Replace(code, "");
-        code = code.Replace('\n', ' ');
-        code = rxExcessSpaces.Replace(code, " ");
-        return rxTokenize
-            .Matches(code)
-            .Select(IToken (match, i) =>
-            {
-                string word = match.Value;
-                try
-                {
-                    var token = IToken.ParseWord(word);
-                    GD.PrintRich($"[color=#ce9178]\"{word}\"[/color] => {token}");
-                    return token;
-                }
-                catch
-                {
-                    GD.PrintRich($"[color=#ce9178]\"{word}\"[/color] => [color=#d16969][err][/color]");
-                    throw;
-                }
-            })
-            .ToArray();
-    }
     #endregion
 
     #region Parser
@@ -778,7 +667,16 @@ public static class NadeSy
         try
         {
             GD.PrintRich("Tokenizing...");
-            var tokens = Tokenize(code);
+            var tokens = tokenizer
+                .Tokenize(code)
+                .Select(IToken (x) => {
+                    var (word, token) = x;
+                    var tkn = token is not null ? $"{token}" : "[color=#d16969][err][/color]";
+                    GD.PrintRich($"[color=#ce9178]\"{word}\"[/color] => {tkn}");
+                    if (token is null) throw new SyntaxErrorException($"Unknown word: \"{word}\"");
+                    return token;
+                })
+                .ToArray();
 
             GD.PrintRich("Building token tree...");
             var tree = Parse(tokens);

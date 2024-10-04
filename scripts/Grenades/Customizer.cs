@@ -3,12 +3,23 @@ using Godot;
 
 public partial class Customizer : GrenadeBase
 {
+    public readonly struct ROMInsertion
+    {
+        public readonly string kind;
+        public readonly string programString;
+    }
+
     private readonly Device device = new();
     private ulong startTime = Time.GetTicksMsec();
 
+    [Export]
+    public PhysicalRom PhysicalRom;
+
     public override void _Ready()
     {
-        Insert(NadeSy.ExampleSy); // todo: have user insert a ROM manually
+        var (prgm, initRam) = PhysicalRom.Compile();
+        if (initRam is not null) device.ram.Write(initRam);
+        Insert(prgm);
     }
 
     public override void _Process(double delta)
@@ -38,17 +49,11 @@ public partial class Customizer : GrenadeBase
     {
         device.rom = rom;
         if (device.IsRomInserted()) {
-            GD.Print($"Inserting ROM:\n```\n{rom}\n```");
+            GD.PrintRich($"Inserting ROM:\n```\n{rom.ToRich()}\n```");
             IsEnabled = true;
         } else {
             GD.PrintErr("No ROM is inserted.");
             IsEnabled = false;
         }
-    }
-
-    public void Insert(NadeBasic program)
-    {
-        device.ram.Write(program);
-        Insert(NadeBasic.InterpreterROM);
     }
 }

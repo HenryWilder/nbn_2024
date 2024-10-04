@@ -1,7 +1,8 @@
-[gd_scene load_steps=10 format=3 uid="uid://r4wfqo4sftyu"]
+[gd_scene load_steps=11 format=3 uid="uid://r4wfqo4sftyu"]
 
 [ext_resource type="PackedScene" uid="uid://cuqkncv8a8g6f" path="res://Player.tscn" id="1_o840x"]
 [ext_resource type="PackedScene" uid="uid://d3ue5uldb2hw3" path="res://Grenades/CustomizerGrenade.tscn" id="2_oiqdo"]
+[ext_resource type="PackedScene" uid="uid://ddlhj21kthoq6" path="res://scripts/Grenades/Customizer/PhysicalROM.tscn" id="3_kn0bj"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_dbcxs"]
 
@@ -49,4 +50,34 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.696939, 0)
 transform = Transform3D(1, 0, 0, 0, 0.566852, 0.82382, 0, -0.82382, 0.566852, 0, 0, 0)
 shadow_enabled = true
 
-[node name="CustomizerGrenade" parent="." instance=ExtResource("2_oiqdo")]
+[node name="CustomizerGrenade" parent="." node_paths=PackedStringArray("PhysicalRom") instance=ExtResource("2_oiqdo")]
+PhysicalRom = NodePath("../AssemblyROM")
+
+[node name="AssemblyROM" parent="." instance=ExtResource("3_kn0bj")]
+sourceCode = "mov r0 #2        ;set the timer to repeat 2 times
+                 ;note that reps are not a measure of time
+.timer:          ;define a spot to jump back to later
+    nop          ;do nothing this cycle
+    sub r0 r0 #1 ;decrement the timer
+    jnz .timer   ;repeat if the CPU's zero flag is set
+                 ;(i.e. the most recent operation resulted in 0)
+    mov bam #1   ;explode the grenade"
+
+[node name="CustomizerGrenade2" parent="." node_paths=PackedStringArray("PhysicalRom") instance=ExtResource("2_oiqdo")]
+PhysicalRom = NodePath("../NadeSyROM")
+
+[node name="NadeSyROM" parent="." instance=ExtResource("3_kn0bj")]
+compileAs = 2
+sourceCode = "let a = 5;
+if a == 3 {
+    b = 7
+} else if a == 6 {
+    b = 2
+} else {
+    b = 8
+}
+const NUM_LOOPS = 4;
+for (i in 0..NUM_LOOPS /* loop from 0 to NUM_LOOPS (i.e. 4) */) {
+    // do nothing
+}
+explode();"

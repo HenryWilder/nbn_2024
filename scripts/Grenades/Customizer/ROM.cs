@@ -4,11 +4,12 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Godot;
 using static Device.CPU;
+using static DebugUtility;
 
 /// <summary>
 /// Program memory
 /// </summary>
-public class ROM
+public class ROM : IRichDisplay
 {
     public ROM(IEnumerable<Line> iter)
     {
@@ -16,29 +17,14 @@ public class ROM
     }
 
     #region Line
-    [StructLayout(LayoutKind.Explicit, Pack = sizeof(short))]
-    public readonly struct Line
+    [StructLayout(LayoutKind.Sequential, Pack = sizeof(short))]
+    public readonly struct Line(Opcode opcode, short roja, short arg1, short arg2) : IRichDisplay
     {
-        [FieldOffset(sizeof(short) * 0)]
-        public readonly Opcode opcode;
-
+        public readonly Opcode opcode = opcode;
         /// <summary> Result or jump address </summary>
-        [FieldOffset(sizeof(short) * 1)]
-        public readonly short roja;
-
-        [FieldOffset(sizeof(short) * 2)]
-        public readonly short arg1;
-
-        [FieldOffset(sizeof(short) * 3)]
-        public readonly short arg2;
-
-        public Line(Opcode opcode, short roja, short arg1, short arg2)
-        {
-            this.opcode = opcode;
-            this.roja = roja;
-            this.arg1 = arg1;
-            this.arg2 = arg2;
-        }
+        public readonly short roja = roja;
+        public readonly short arg1 = arg1;
+        public readonly short arg2 = arg2;
 
         /// <summary> Alias of roja </summary>
         public short Result => roja;
@@ -59,43 +45,60 @@ public class ROM
 
         public string ToRich()
         {
-            const string COLOR_LABEL    = "[color=#dcdcaa]";
-            const string COLOR_VARIABLE = "[color=#9cdcfe]";
-            const string COLOR_LITERAL  = "[color=#b5cea8]";
-            const string COLOR_NORMAL   = "[color=#569cd6]";
-            const string COLOR_CONTROL  = "[color=#c586c0]";
-
             var op = opcode.Operation;
-            var rojaStr = (op.IsJump() ? $"{COLOR_LABEL}line " : $"{COLOR_VARIABLE}register ") + $"{roja}[/color]";
-            var arg1Str = (opcode.IsArg1Immediate ? COLOR_LITERAL : $"{COLOR_VARIABLE}the value in register ") + $"{arg1}[/color]";
-            var arg2Str = (opcode.IsArg2Immediate ? COLOR_LITERAL : $"{COLOR_VARIABLE}the value in register ") + $"{arg2}[/color]";
+            int num = op.ExpectedArgs();
 
-            return op switch
+
+            List<string> parts = new(1 + num) { op.Highlight(Syntax.Keyword) };
+            if (num > 0) parts.Add(RichUnion(op.IsJump() ? ("lbl", Syntax.Function) : ("reg", Syntax.Variable), roja));
+            if (num > 1) parts.Add(RichUnion(opcode.IsArg1Immediate ? ("lit", Syntax.NumLiteral) : ("reg", Syntax.Variable), arg1));
+            if (num > 2) parts.Add(RichUnion(opcode.IsArg2Immediate ? ("lit", Syntax.NumLiteral) : ("reg", Syntax.Variable), arg2));
+            return string.Join(' ', parts);
+        }
+
+        public string Descriptive()
+        {
+            var op = opcode.Operation;
+
+            var rojaStr = op.IsJump()
+                ? $"line {roja}".Highlight(Syntax.Function)
+                : $"register {roja}".Highlight(Syntax.Variable);
+
+            var arg1Str = opcode.IsArg1Immediate
+                ? $"{arg1}".Highlight(Syntax.NumLiteral)
+                : $"the value in register {arg1}".Highlight(Syntax.Variable);
+
+            var arg2Str = opcode.IsArg2Immediate
+                ? $"{arg2}".Highlight(Syntax.NumLiteral)
+                : $"the value in register {arg2}".Highlight(Syntax.Variable);
+
+            var (syntax, text) = op switch
             {
-                Instruction.NOP => COLOR_CONTROL + $"do nothing",
-                Instruction.MOV => COLOR_NORMAL  + $"set {rojaStr} equal to {arg1Str}",
-                Instruction.LDR => COLOR_NORMAL  + $"load RAM at index {arg1Str} into {rojaStr}",
-                Instruction.SDR => COLOR_NORMAL  + $"save {rojaStr} to RAM at index {arg1Str}",
-                Instruction.ADD => COLOR_NORMAL  + $"calculate {arg1Str} + {arg2Str} and store the result in {rojaStr}",
-                Instruction.SUB => COLOR_NORMAL  + $"calculate {arg1Str} - {arg2Str} and store the result in {rojaStr}",
-                Instruction.MUL => COLOR_NORMAL  + $"calculate {arg1Str} * {arg2Str} and store the result in {rojaStr}",
-                Instruction.DIV => COLOR_NORMAL  + $"calculate {arg1Str} / {arg2Str} and store the result in {rojaStr}",
-                Instruction.AND => COLOR_NORMAL  + $"calculate bitwise {arg1Str} AND {arg2Str} and store the result in {rojaStr}",
-                Instruction.ORR => COLOR_NORMAL  + $"calculate bitwise {arg1Str} OR {arg2Str} and store the result in {rojaStr}",
-                Instruction.NOT => COLOR_NORMAL  + $"calculate bitwise NOT {arg1Str} and store the result in {rojaStr}",
-                Instruction.XOR => COLOR_NORMAL  + $"calculate bitwise {arg1Str} XOR {arg2Str} and store the result in {rojaStr}",
-                Instruction.JMP => COLOR_CONTROL + $"jump to {rojaStr}",
-                Instruction.JE  => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} equals {arg1Str}",
-                Instruction.JNE => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} does not equal {arg1Str}",
-                Instruction.JZ  => COLOR_CONTROL + $"jump to {rojaStr} if the zero bit is set",
-                Instruction.JNZ => COLOR_CONTROL + $"jump to {rojaStr} if the zero bit is not set",
-                Instruction.JG  => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} is greater than {arg2Str}",
-                Instruction.JL  => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} is less than {arg2Str}",
-                Instruction.JGE => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} is greater than or equal to {arg2Str}",
-                Instruction.JLE => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} is less than or equal to {arg2Str}",
-                Instruction.JS  => COLOR_CONTROL + $"jump to {rojaStr} if the sign bit is set",
+                Instruction.NOP => (Syntax.Control, $"do nothing"),
+                Instruction.MOV => (Syntax.Keyword, $"set {rojaStr} equal to {arg1Str}"),
+                Instruction.LDR => (Syntax.Keyword, $"load RAM at index {arg1Str} into {rojaStr}"),
+                Instruction.SDR => (Syntax.Keyword, $"save {rojaStr} to RAM at index {arg1Str}"),
+                Instruction.ADD => (Syntax.Keyword, $"calculate {arg1Str} + {arg2Str} and store the result in {rojaStr}"),
+                Instruction.SUB => (Syntax.Keyword, $"calculate {arg1Str} - {arg2Str} and store the result in {rojaStr}"),
+                Instruction.MUL => (Syntax.Keyword, $"calculate {arg1Str} * {arg2Str} and store the result in {rojaStr}"),
+                Instruction.DIV => (Syntax.Keyword, $"calculate {arg1Str} / {arg2Str} and store the result in {rojaStr}"),
+                Instruction.AND => (Syntax.Keyword, $"calculate bitwise {arg1Str} AND {arg2Str} and store the result in {rojaStr}"),
+                Instruction.ORR => (Syntax.Keyword, $"calculate bitwise {arg1Str} OR {arg2Str} and store the result in {rojaStr}"),
+                Instruction.NOT => (Syntax.Keyword, $"calculate bitwise NOT {arg1Str} and store the result in {rojaStr}"),
+                Instruction.XOR => (Syntax.Keyword, $"calculate bitwise {arg1Str} XOR {arg2Str} and store the result in {rojaStr}"),
+                Instruction.JMP => (Syntax.Control, $"jump to {rojaStr}"),
+                Instruction.JE  => (Syntax.Control, $"jump to {rojaStr} if {arg1Str} equals {arg1Str}"),
+                Instruction.JNE => (Syntax.Control, $"jump to {rojaStr} if {arg1Str} does not equal {arg1Str}"),
+                Instruction.JZ  => (Syntax.Control, $"jump to {rojaStr} if the zero bit is set"),
+                Instruction.JNZ => (Syntax.Control, $"jump to {rojaStr} if the zero bit is not set"),
+                Instruction.JG  => (Syntax.Control, $"jump to {rojaStr} if {arg1Str} is greater than {arg2Str}"),
+                Instruction.JL  => (Syntax.Control, $"jump to {rojaStr} if {arg1Str} is less than {arg2Str}"),
+                Instruction.JGE => (Syntax.Control, $"jump to {rojaStr} if {arg1Str} is greater than or equal to {arg2Str}"),
+                Instruction.JLE => (Syntax.Control, $"jump to {rojaStr} if {arg1Str} is less than or equal to {arg2Str}"),
+                Instruction.JS  => (Syntax.Control, $"jump to {rojaStr} if the sign bit is set"),
                 _ => throw new NotImplementedException(),
-            } + "[/color]";
+            };
+            return text.Highlight(syntax);
         }
     }
     #endregion
@@ -154,7 +157,7 @@ public class ROM
     {
         GD.Print($"Parsing assembly:\n```\n{code}\n```");
 
-        Dictionary<string, short> labels = new();
+        Dictionary<string, short> labels = [];
 
         short LabelLookup(string label) {
             if (labels.TryGetValue(label, out short lineNumber)) {
@@ -220,10 +223,13 @@ public class ROM
             .Select((line, i) =>
             {
                 var token0 = line.First();
-                var op = Enum.Parse<Instruction>(token0.ToUpper());
-
                 var args = line.Skip(1).Take(3);
-                GD.Print($"args: [{string.Join(',', args)}]");
+                GD.PrintRich(
+                    $"line {i}:".Highlight(Syntax.Function) + '\n' +
+                    $"  op: {$"\"{token0}\"".Highlight(Syntax.StrLiteral)}\n" +
+                    $"  args: [{string.Join(',', args.Select(x => $"\"{x}\"".Highlight(Syntax.StrLiteral)))}]");
+
+                var op = Enum.Parse<Instruction>(token0.ToUpper());
                 int numExpected = op.ExpectedArgs();
                 if (args.Count() != numExpected)
                 {
@@ -242,7 +248,7 @@ public class ROM
                     ParseArg(is1Imm, arg1),
                     ParseArg(is2Imm, arg2)
                 );
-                // GD.Print($"result: {result}");
+                GD.PrintRich("  result: " + result.ToRich());
                 return result;
             });
 
@@ -257,16 +263,21 @@ public class ROM
         return string.Join('\n', Enumerable.Range(0, NumLines).Select(i => $"{i}: {this[i]}"));
     }
 
-    #region Example ROM
-    public static readonly ROM ExampleROM = Parse(@"
-mov r0 #2        ;set the timer to repeat 2 times
-                 ;note that reps are not a measure of time
-.timer:          ;define a spot to jump back to later
-    nop          ;do nothing this cycle
-    sub r0 r0 #1 ;decrement the timer
-    jnz .timer   ;repeat if the CPU's zero flag is set
-                 ;(i.e. the most recent operation resulted in 0)
-    mov bam #1   ;explode the grenade
-");
-    #endregion
+    public string ToRich()
+    {
+        return string.Join('\n', Enumerable.Range(0, NumLines).Select(i => $"{i}: ".Highlight(Syntax.Function) + this[i].ToRich()));
+    }
+
+//     #region Example ROM
+//     public static readonly ROM ExampleROM = Parse(@"
+// mov r0 #2        ;set the timer to repeat 2 times
+//                  ;note that reps are not a measure of time
+// .timer:          ;define a spot to jump back to later
+//     nop          ;do nothing this cycle
+//     sub r0 r0 #1 ;decrement the timer
+//     jnz .timer   ;repeat if the CPU's zero flag is set
+//                  ;(i.e. the most recent operation resulted in 0)
+//     mov bam #1   ;explode the grenade
+// ");
+//     #endregion
 }

@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Godot;
 using static Device.CPU.Instruction;
 using static InstructionExtension;
+using static DebugUtility;
 
 public static class InstructionExtension {
     public static int ExpectedArgs(this Device.CPU.Instruction op)
@@ -40,37 +41,35 @@ public static class InstructionExtension {
     public static bool IsJump(this Device.CPU.Instruction op)
         => op is JMP or JE or JNE or JZ or JNZ or JG or JL or JGE or JLE or JS;
 
-    public static string Rich(this Device.CPU.Instruction op)
+    public static string ToRich(this Device.CPU.Instruction op)
     {
-        const string COLOR_NORMAL = "#569cd6";
-        const string COLOR_CONTROL = "#c586c0";
-        var (text, color) = op switch
+        var (text, syntax) = op switch
         {
-            NOP => ("no operation",             COLOR_NORMAL),
-            MOV => ("move",                     COLOR_NORMAL),
-            LDR => ("load from ram",            COLOR_NORMAL),
-            SDR => ("save to ram",              COLOR_NORMAL),
-            ADD => ("add",                      COLOR_NORMAL),
-            SUB => ("subtract",                 COLOR_NORMAL),
-            MUL => ("multiply",                 COLOR_NORMAL),
-            DIV => ("divide",                   COLOR_NORMAL),
-            AND => ("bit and",                  COLOR_NORMAL),
-            ORR => ("bit or",                   COLOR_NORMAL),
-            NOT => ("bit invert",               COLOR_NORMAL),
-            XOR => ("bit xor",                  COLOR_NORMAL),
-            JMP => ("jump",                     COLOR_CONTROL),
-            JE  => ("jump if equal",            COLOR_CONTROL),
-            JNE => ("jump if not equal",        COLOR_CONTROL),
-            JZ  => ("jump if zero",             COLOR_CONTROL),
-            JNZ => ("jump if not zero",         COLOR_CONTROL),
-            JG  => ("jump if greater",          COLOR_CONTROL),
-            JL  => ("jump if less",             COLOR_CONTROL),
-            JGE => ("jump if greater or equal", COLOR_CONTROL),
-            JLE => ("jump if less or equal",    COLOR_CONTROL),
-            JS  => ("jump if negative",         COLOR_CONTROL),
+            NOP => ("no operation",             Syntax.Control),
+            MOV => ("move",                     Syntax.Keyword),
+            LDR => ("load from ram",            Syntax.Keyword),
+            SDR => ("save to ram",              Syntax.Keyword),
+            ADD => ("add",                      Syntax.Keyword),
+            SUB => ("subtract",                 Syntax.Keyword),
+            MUL => ("multiply",                 Syntax.Keyword),
+            DIV => ("divide",                   Syntax.Keyword),
+            AND => ("bit and",                  Syntax.Keyword),
+            ORR => ("bit or",                   Syntax.Keyword),
+            NOT => ("bit invert",               Syntax.Keyword),
+            XOR => ("bit xor",                  Syntax.Keyword),
+            JMP => ("jump",                     Syntax.Control),
+            JE  => ("jump if equal",            Syntax.Control),
+            JNE => ("jump if not equal",        Syntax.Control),
+            JZ  => ("jump if zero",             Syntax.Control),
+            JNZ => ("jump if not zero",         Syntax.Control),
+            JG  => ("jump if greater",          Syntax.Control),
+            JL  => ("jump if less",             Syntax.Control),
+            JGE => ("jump if greater or equal", Syntax.Control),
+            JLE => ("jump if less or equal",    Syntax.Control),
+            JS  => ("jump if negative",         Syntax.Control),
             _ => throw new NotImplementedException(),
         };
-        return $"[color={color}]{text}[/color]";
+        return text.Highlight(syntax);
     }
 }
 
@@ -315,7 +314,7 @@ public class Device
             }
         }
         private ProgramStatus status = new();
-        public int CurrentLine => status.PC;
+        public readonly int CurrentLine => status.PC;
         #endregion
 
         #region Execute
@@ -325,14 +324,17 @@ public class Device
             short arg1 = reg[line.opcode.IsArg1Immediate, line.arg1];
             short arg2 = reg[line.opcode.IsArg2Immediate, line.arg2];
             GD.PrintRich(
-                $"[color=cornflowerblue]{reg.Tms}ms:[/color] [color=#d7ba7d]flags[" +
+                $"{reg.Tms}ms: ".Highlight(Syntax.Comment) +
+                ($"flags[" +
                 string.Concat(
-                    status.SignBit     ? '-' : ' ',
-                    status.ZeroBit     ? '0' : ' ',
-                    status.CarryBit    ? '+' : ' ',
-                    status.OverflowBit ? '^' : ' '
+                    status.SignBit     ? "-" : "",
+                    status.ZeroBit     ? "0" : "",
+                    status.CarryBit    ? "+" : "",
+                    status.OverflowBit ? "^" : ""
                 ) +
-                $"][/color] [color=#dcdcaa]line {status.PC}:[/color] {line.ToRich()}"
+                $"] ").Highlight(Syntax.NumLiteral) +
+                $"line {status.PC}: ".Highlight(Syntax.Function) +
+                line.ToRich()
             );
 
             int? result = null;
@@ -391,22 +393,22 @@ public class Device
             if (result is int x) {
                 status.SetArithmeticFlags(x);
                 reg[line.Result] = (short)x;
-                GD.Print(
-                    $"  Assigning {(short)x} to register {line.Result} " +
+                GD.PrintRich(
+                    $"  Assigning {x.Highlight(Syntax.NumLiteral)} to register {line.Result.Highlight(Syntax.Variable)} " +
                     (status.OverflowBit ? " Overflow" : "") +
-                    (status.CarryBit    ? " Carry" : "") +
-                    (status.ZeroBit     ? " Zero" : "") +
-                    (status.SignBit     ? " Sign" : "")
+                    (status.CarryBit    ? " Carry"    : "") +
+                    (status.ZeroBit     ? " Zero"     : "") +
+                    (status.SignBit     ? " Sign"     : "")
                 );
             }
 
             // Update PC
             if (isJumping) {
-                GD.Print($"  Jumping from line {status.PC} to line {line.JumpAddress}");
+                GD.PrintRich($"  Jumping from line {status.PC.Highlight(Syntax.Function)} to line {line.JumpAddress.Highlight(Syntax.Function)}");
                 status.PC = line.JumpAddress;
             } else {
                 ++status.PC;
-                GD.Print($"  Stepping to line {status.PC}");
+                GD.PrintRich($"  Stepping to line {status.PC.Highlight(Syntax.Function)}");
             }
         }
         #endregion
@@ -438,7 +440,7 @@ public class Device
                 T* tPtr = (T*)bytePtr;
                 result = tPtr[index];
             }
-            GD.Print($"{{Reading {sizeof(T)} bytes from RAM at index {index} (byte {index*sizeof(T)}): {result}}}");
+            GD.PrintRich($"{{Reading {sizeof(T)} bytes from RAM at index {index} (byte {index*sizeof(T)}): {result}}}");
             return result;
         }
 
@@ -449,7 +451,7 @@ public class Device
                 T* tPtr = (T*)bytePtr;
                 tPtr[index] = value;
             }
-            GD.Print($"{{Writing {sizeof(T)} bytes to RAM at index {index} (byte {index*sizeof(T)}): {value}}}");
+            GD.PrintRich($"{{Writing {sizeof(T)} bytes to RAM at index {index} (byte {index*sizeof(T)}): {value}}}");
         }
 
         public void Write<T>(int index, T[] data) where T: unmanaged
@@ -462,7 +464,7 @@ public class Device
                     tPtr[i++] = item;
                 }
             }
-            GD.Print(
+            GD.PrintRich(
                 $"{{Writing {sizeof(T)*data.Length} bytes ({data.Length} {sizeof(T)}-byte items) to RAM at index {index} (byte {index*sizeof(T)}): [\n" +
                 string.Join(",\n", data.Select(item => "  " + item)) +
                 $"\n]}}"

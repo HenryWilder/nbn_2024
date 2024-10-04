@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ddlhj21kthoq6"]
+
+[ext_resource type="Script" path="res://scripts/Grenades/Customizer/PhysicalRom.cs" id="1_6xjo2"]
+
+[node name="PhysicalRom" type="Node3D"]
+script = ExtResource("1_6xjo2")

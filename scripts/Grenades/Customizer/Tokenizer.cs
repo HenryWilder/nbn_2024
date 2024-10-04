@@ -7,9 +7,7 @@ using Godot;
 
 public readonly struct Tokenizer<Token>
 {
-    /// <summary>
-    ///
-    /// </summary>
+    /// <summary></summary>
     /// <param name="reserved"> NOT regex </param>
     /// <param name="numericLiteral"> regex </param>
     /// <param name="variableName"> regex </param>
@@ -25,9 +23,15 @@ public readonly struct Tokenizer<Token>
     {
         // smaller tokens have a chance of being contained inside larger tokens and disassembling them
         reserved = [..reserved.OrderByDescending(x => x.str.Length)];
+        var reservedLiterals = string.Join('|', reserved.Select(x =>
+            (char.IsLetter(x.str.First()) ? @"\b" : "") +
+            Regex.Escape(x.str) +
+            (char.IsLetter(x.str.Last()) ? @"\b" : "")
+        ));
         rxWord = new(
-            @$"\b(?:{string.Join('|',reserved.Select(x=>Regex.Escape(x.str)))}|{variableName.pattern})\b|{numericLiteral.pattern}",
+            @$"{reservedLiterals}|{variableName.pattern}|{numericLiteral.pattern}",
             RegexOptions.Compiled);
+        // GD.Print(rxWord);
         reservedLookup = reserved.ToDictionary(x => x.str, x => x.token);
         rxIsNumLiteral = new(numericLiteral.pattern, RegexOptions.Compiled);
         parseNumLiteral = numericLiteral.converter;
@@ -45,7 +49,7 @@ public readonly struct Tokenizer<Token>
     private readonly Regex rxIsVariableName;
     private readonly Func<string, Token> parseVariableName;
     private readonly bool isWhitespaceSensitive;
-    private static readonly Regex rxExcessSpaces = new(@" {2,}|\t+", RegexOptions.Compiled);
+    private static readonly Regex rxExcessSpaces = new(@"\ {2,}|\t+", RegexOptions.Compiled);
 
     public readonly IEnumerable<(string, Token)> Tokenize(string code)
     {
@@ -56,8 +60,9 @@ public readonly struct Tokenizer<Token>
             code = code.Replace('\n', ' ');
             code = rxExcessSpaces.Replace(code, " ");
         }
-        return rxWord
-            .Matches(code)
+        var matches = rxWord.Matches(code);
+        // GD.Print(string.Join(", ", matches.Select(x => x.Value)));
+        return matches
             .Select((match) =>
             {
                 string word = match.Value;

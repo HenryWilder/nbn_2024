@@ -2,17 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Godot;
+using static DebugUtility;
 
 public static class NadeSy
 {
     #region Token
-    interface IToken
-    {
-        protected static string Format(string tag, string valueColor, object value)
-            => $"[color=#4ec9b0]{tag}[/color]([color={valueColor}]{value}[/color])";
-    }
+    interface IToken : IRichDisplay {}
 
     #region Keyword
     public enum Kw
@@ -29,7 +25,8 @@ public static class NadeSy
     class Keyword(Kw kw) : IToken
     {
         public Kw kw = kw;
-        public override string ToString() => IToken.Format("kw", "#c586c0", kw);
+        public string ToRich()
+            => RichUnion(("kw", Syntax.Control), kw);
     }
     #endregion
 
@@ -37,7 +34,8 @@ public static class NadeSy
     class Variable(string name) : IToken
     {
         public string name = name;
-        public override string ToString() => IToken.Format("var", "#9cdcfe", name);
+        public string ToRich()
+            => RichUnion(("var", Syntax.Variable), name);
     }
 
     #endregion
@@ -47,7 +45,8 @@ public static class NadeSy
     class NumLiteral(short value) : IToken
     {
         public short value = value;
-        public override string ToString() => IToken.Format("num", "#b5cea8", value);
+        public string ToRich()
+            => RichUnion(("num", Syntax.NumLiteral), value);
     }
     #endregion
 
@@ -116,7 +115,8 @@ public static class NadeSy
     class Operator(Op op) : IToken
     {
         public Op op = op;
-        public override string ToString() => IToken.Format("op", "#dcdcaa", op);
+        public string ToRich()
+            => RichUnion(("op", Syntax.Function), op);
     }
     #endregion
 
@@ -213,23 +213,23 @@ public static class NadeSy
         /// </summary>
         Statement,
     }
-    static string FormatScope(ScopeType tag, string inner = "")
+    static string FormatScope(ScopeType tag, string inner = "", bool isColored = true)
     {
-        var(color, open, close) = tag switch {
+        var (syntax, open, close) = tag switch {
             ScopeType.Expression
-                => ("#ffd700", "(", ")"),
+                => (Syntax.BracketGold, "(", ")"),
             ScopeType.Inline
-                => ("#d7ba7d", "#(", ")"),
+                => (Syntax.RegexPaleYellow, "#(", ")"),
             ScopeType.Subscript
-                => ("#da70d6", "[", "]"),
+                => (Syntax.BracketPink, "[", "]"),
             ScopeType.Statement
-                => ("#179fff", ":[", "];"),
+                => (Syntax.BracketBlue, ":[", "];"),
             ScopeType.Scope
-                => ("#da70d6", "{", "}"),
+                => (Syntax.BracketPink, "{", "}"),
 
             _ => throw new NotImplementedException(),
         };
-        return $"[color={color}]{open}[/color]{inner}[color={color}]{close}[/color]";
+        return (isColored ? open.Highlight(syntax) : open) + inner + (isColored ? close.Highlight(syntax) : close);
     }
     enum ScopeDirection
     {
@@ -240,15 +240,13 @@ public static class NadeSy
     {
         public ScopeType tag = tag;
         public ScopeDirection dir = dir;
-        public override string ToString()
-            => IToken.Format("scope", "#dcdcaa", FormatScope(tag,
-                "[color=#4fc1ff]" +
-                (dir switch {
-                    ScopeDirection.Push => '+',
-                    ScopeDirection.Pop => '-',
+        public string ToRich()
+            => RichUnion(("scope", Syntax.Constant), FormatScope(tag,
+                dir switch {
+                    ScopeDirection.Push => "+",
+                    ScopeDirection.Pop => "-",
                     _ => throw new NotImplementedException(),
-                }) +
-                "[/color]"
+                }
             ));
     }
     #endregion
@@ -268,9 +266,9 @@ public static class NadeSy
     }
 
     #region Token Tree
-    class TokenTree
+    class TokenTree : IRichDisplay
     {
-        public interface INode { }
+        public interface INode : IRichDisplay { }
 
         public interface IExprItem : INode { }
 
@@ -278,6 +276,7 @@ public static class NadeSy
         {
             public readonly IToken token = token;
             public override string ToString() => $"{token}";
+            public string ToRich() => token.ToRich();
         }
 
         public abstract class Layer : INode
@@ -307,7 +306,15 @@ public static class NadeSy
                 return !string.IsNullOrEmpty(inner) ? inner + '\n' : string.Empty;
             }
             public override string ToString()
-                => FormatScope(Tag, InnerString());
+                => FormatScope(Tag, InnerString(), false);
+
+            protected string InnerRich()
+            {
+                string inner = string.Join("", Items.Select(x => $"\n{x.ToRich()},")).Replace("\n", "\n  ");
+                return !string.IsNullOrEmpty(inner) ? inner + '\n' : string.Empty;
+            }
+            public string ToRich()
+                => FormatScope(Tag, InnerRich());
         }
 
         public class SubExpr(ScopeType tag) : Layer, IExprItem
@@ -328,8 +335,8 @@ public static class NadeSy
             public string ToLineString()
             {
                 string inner = string.Join(", ", Items.Select(x => x is Scope
-                    ? FormatScope(ScopeType.Scope, "[color=#6a9955]...[/color]")
-                    : x.ToString()
+                    ? FormatScope(ScopeType.Scope, "...".Highlight(Syntax.Comment))
+                    : x.ToRich()
                 ));
                 return FormatScope(Tag, inner);
             }
@@ -346,6 +353,7 @@ public static class NadeSy
         public readonly Scope globalScope = new();
 
         public override string ToString() => globalScope.ToString();
+        public string ToRich() => globalScope.ToRich();
 
         #region Builder
         public class Builder
@@ -391,7 +399,7 @@ public static class NadeSy
 
             public void PushAtom(IToken token)
             {
-                GD.PrintRich($"{StackPath} += {token}");
+                GD.PrintRich($"{StackPath} += {token.ToRich()}");
                 Atom newAtom = new(token);
                 CurrentScope.Add(newAtom);
             }
@@ -471,32 +479,30 @@ public static class NadeSy
 
     #region Concoctor
     class Asm(IEnumerable<Asm.IToken[]> lines) {
-        public interface IToken {
-            public abstract string ToRich();
-        }
+        public interface IToken : IRichDisplay {}
 
         public readonly struct Op(string op) : IToken {
             readonly string op = op;
             public override readonly string ToString() => op;
-            public readonly string ToRich() => $"[color=#569cd6]{op}[/color]";
+            public readonly string ToRich() => op.Highlight(Syntax.Keyword);
         }
 
         public readonly struct Lbl(string name) : IToken {
             readonly string name = name;
             public override readonly string ToString() => name;
-            public readonly string ToRich() => $"[color=#dcdcaa]{name}[/color]";
+            public readonly string ToRich() => name.Highlight(Syntax.Function);
         }
 
         public readonly struct Lit(short value) : IToken {
             readonly short value = value;
             public override readonly string ToString() => value.ToString();
-            public readonly string ToRich() => $"[color=#b5cea8]{value}[/color]";
+            public readonly string ToRich() => value.Highlight(Syntax.NumLiteral);
         }
 
         public readonly struct Comment(string text) : IToken {
             readonly string text = ";" + text.Replace("\n", "\n;");
             public override readonly string ToString() => ""; // make it easier on the assembly parser by not putting the comments in to begin with
-            public readonly string ToRich() => string.Join('\n', text.Split('\n').Select(line => $"[color=#6a9955]{line}[/color]"));
+            public readonly string ToRich() => string.Join('\n', text.Split('\n').Select(line => line.Highlight(Syntax.Comment)));
         }
 
         public List<IToken[]> lines = [..lines];
@@ -525,7 +531,7 @@ public static class NadeSy
         {
             Asm parts = new(condThen.SelectMany(IEnumerable<Asm.IToken[]>(item, n) => [
                 [
-                    new Asm.Comment($"todo:\n```\n{string.Join(',', item.cond.Select(x => x.ToString()))}\n```"),
+                    new Asm.Comment($"todo:\n```\n{string.Join(',', item.cond.Select(x => x.ToRich()))}\n```"),
                 ],
                 [
                     new Asm.Op("jz"),
@@ -533,7 +539,7 @@ public static class NadeSy
                     new Asm.Comment($"if the line above evaluates to false (0), skip to condition {n+1}"),
                 ],
                 [
-                    new Asm.Comment($"todo:\n```\n{item.then}\n```"),
+                    new Asm.Comment($"todo:\n```\n{item.then.ToRich()}\n```"),
                 ],
                 [
                     new Asm.Op("jmp"),
@@ -546,7 +552,7 @@ public static class NadeSy
                 ],
             ]));
             if (ifNone is not null) {
-                parts.lines.Add([new Asm.Comment($"todo:\n```\n{ifNone}\n```")]);
+                parts.lines.Add([new Asm.Comment($"todo:\n```\n{ifNone.ToRich()}\n```")]);
             }
             parts.lines.Add([
                 new Asm.Lbl($".finally_{uniqueIdentifier}:"),
@@ -608,9 +614,9 @@ public static class NadeSy
                             {
                                 GD.Print("If statement");
                                 var cond = ExtractCondition(ref iter);
-                                GD.PrintRich($"{cond.Count()} token condition: [{string.Join(", ",cond)}]");
+                                GD.PrintRich($"{cond.Count()} token condition: [{string.Join(", ",cond.Select(x=>x.ToRich()))}]");
                                 var then = ExtractScope(ref iter);
-                                GD.PrintRich($"if true: {then}");
+                                GD.PrintRich($"if true: {then.ToRich()}");
                                 items.Add(new Conditional() {
                                     condThen = { ([..cond], then) }
                                 });
@@ -623,9 +629,9 @@ public static class NadeSy
                                 if (items.LastOrDefault() is Conditional conditional)
                                 {
                                     var cond = ExtractCondition(ref iter);
-                                    GD.PrintRich($"{cond.Count()} token condition: [{string.Join(", ",cond)}]");
+                                    GD.PrintRich($"{cond.Count()} token condition: [{string.Join(", ",cond.Select(x=>x.ToRich()))}]");
                                     var then = ExtractScope(ref iter);
-                                    GD.PrintRich($"if true: {then}");
+                                    GD.PrintRich($"if true: {then.ToRich()}");
                                     conditional.condThen.Add(([..cond], then));
                                 }
                                 else throw new SyntaxErrorException("'else' cannot start a statement");
@@ -638,7 +644,7 @@ public static class NadeSy
                                 if (items.LastOrDefault() is Conditional conditional)
                                 {
                                     var then = ExtractScope(ref iter);
-                                    GD.PrintRich($"else: {then}");
+                                    GD.PrintRich($"else: {then.ToRich()}");
                                     conditional.ifNone = then;
                                 }
                                 else throw new SyntaxErrorException("'else' cannot start a statement");
@@ -669,10 +675,10 @@ public static class NadeSy
             GD.PrintRich("Tokenizing...");
             var tokens = tokenizer
                 .Tokenize(code)
-                .Select(IToken (x) => {
+                .Select(x => {
                     var (word, token) = x;
-                    var tkn = token is not null ? $"{token}" : "[color=#d16969][err][/color]";
-                    GD.PrintRich($"[color=#ce9178]\"{word}\"[/color] => {tkn}");
+                    var tkn = token is not null ? token.ToRich() : "[err]".Highlight(Syntax.Error);
+                    GD.PrintRich($"\"{word}\"".Highlight(Syntax.StrLiteral) + " => " + tkn);
                     if (token is null) throw new SyntaxErrorException($"Unknown word: \"{word}\"");
                     return token;
                 })
@@ -680,7 +686,7 @@ public static class NadeSy
 
             GD.PrintRich("Building token tree...");
             var tree = Parse(tokens);
-            GD.PrintRich($"Generated token tree:\n{tree}\n");
+            GD.PrintRich($"Generated token tree:\n{tree.ToRich()}\n");
 
             GD.PrintRich("Concocting...");
             var concoction = Concoct(tree.globalScope);
@@ -702,21 +708,21 @@ public static class NadeSy
     }
     #endregion
 
-    #region Example ROM
-    public static readonly ROM ExampleSy = Compile(@"
-let a = 5;
-if a == 3 {
-    b = 7
-} else if a == 6 {
-    b = 2
-} else {
-    b = 8
-}
-const NUM_LOOPS = 4;
-for (i in 0..NUM_LOOPS /* loop from 0 to NUM_LOOPS (i.e. 4) */) {
-    // do nothing
-}
-explode();
-");
-    #endregion
+//     #region Example ROM
+//     public static readonly ROM ExampleSy = Compile(@"
+// let a = 5;
+// if a == 3 {
+//     b = 7
+// } else if a == 6 {
+//     b = 2
+// } else {
+//     b = 8
+// }
+// const NUM_LOOPS = 4;
+// for (i in 0..NUM_LOOPS /* loop from 0 to NUM_LOOPS (i.e. 4) */) {
+//     // do nothing
+// }
+// explode();
+// ");
+//     #endregion
 }

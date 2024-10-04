@@ -10,19 +10,20 @@ public readonly struct Tokenizer<Token>
     /// <summary>
     /// 
     /// </summary>
-    /// <param name="reserved">NOT regex</param>
-    /// <param name="numericLiteral">regex</param>
-    /// <param name="variableName">regex</param>
-    /// <param name="commentPattern">regex</param>
+    /// <param name="reserved"> NOT regex </param>
+    /// <param name="numericLiteral"> regex </param>
+    /// <param name="variableName"> regex </param>
+    /// <param name="commentPattern"> regex </param>
     /// <param name="isWhitespaceSensitive">if false: removes newlines and truncates spaces.</param>
     public Tokenizer(
-        IEnumerable<(/* NOT regex */ string str, Token token)> reserved,
-        (/* regex */ string pattern, Func<string, Token> converter) numericLiteral,
-        (/* regex */ string pattern, Func<string, Token> converter) variableName,
-        /* regex */ string commentPattern,
+        IEnumerable<(string str, Token token)> reserved,
+        (string pattern, Func<string, Token> converter) numericLiteral,
+        (string pattern, Func<string, Token> converter) variableName,
+        string commentPattern,
         bool isWhitespaceSensitive
     )
     {
+        // smaller tokens have a chance of being contained inside larger tokens and disassembling them
         reserved = [..reserved.OrderByDescending(x => x.str.Length)];
         rxWord = new(
             @$"\b(?:{string.Join('|',reserved.Select(x=>x.str))}|{variableName.pattern})\b|{numericLiteral.pattern}", 

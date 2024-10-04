@@ -324,7 +324,16 @@ public class Device
             var op = line.opcode.Operation;
             short arg1 = reg[line.opcode.IsArg1Immediate, line.arg1];
             short arg2 = reg[line.opcode.IsArg2Immediate, line.arg2];
-            GD.PrintRich($"[color=cornflowerblue]{reg.Tms}ms:[/color] [color=#dcdcaa]line {status.PC}:[/color] {line.ToRich()}");
+            GD.PrintRich(
+                $"[color=cornflowerblue]{reg.Tms}ms:[/color] [color=#d7ba7d]flags[" +
+                string.Concat(
+                    status.SignBit     ? '-' : ' ',
+                    status.ZeroBit     ? '0' : ' ',
+                    status.CarryBit    ? '+' : ' ',
+                    status.OverflowBit ? '^' : ' '
+                ) +
+                $"][/color] [color=#dcdcaa]line {status.PC}:[/color] {line.ToRich()}"
+            );
 
             int? result = null;
             bool isJumping = false;

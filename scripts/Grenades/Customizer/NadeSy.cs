@@ -581,7 +581,45 @@ public static class NadeSy
     #endregion
 
     #region Concoctor
-    interface IConcoction {}
+    class Asm(IEnumerable<Asm.IToken[]> lines) {
+        public interface IToken {
+            public abstract string ToRich();
+        }
+
+        public readonly struct Op(string op) : IToken {
+            readonly string op = op;
+            public override readonly string ToString() => op;
+            public readonly string ToRich() => $"[color=#569cd6]{op}[/color]";
+        }
+
+        public readonly struct Lbl(string name) : IToken {
+            readonly string name = name;
+            public override readonly string ToString() => name;
+            public readonly string ToRich() => $"[color=#dcdcaa]{name}[/color]";
+        }
+
+        public readonly struct Lit(short value) : IToken {
+            readonly short value = value;
+            public override readonly string ToString() => value.ToString();
+            public readonly string ToRich() => $"[color=#b5cea8]{value}[/color]";
+        }
+
+        public readonly struct Comment(string text) : IToken {
+            readonly string text = ";" + text.Replace("\n", "\n;");
+            public override readonly string ToString() => text;
+            public readonly string ToRich() => string.Join('\n', text.Split('\n').Select(line => $"[color=#6a9955]{line}[/color]"));
+        }
+
+        public List<IToken[]> lines = [..lines];
+        public override string ToString()
+            => string.Join('\n', lines.Select(x => string.Join(' ', x.Select(x => x.ToString()))));
+        public string ToRich()
+            => string.Join('\n', lines.Select(x => string.Join(' ', x.Select(x => x.ToRich()))));
+    }
+
+    interface IConcoction {
+        public Asm ToAsm(string uniqueIdentifier);
+    }
 
     /// <summary>
     /// kw(If), ($cond1), {$then1},
@@ -591,31 +629,45 @@ public static class NadeSy
     /// </summary>
     class Conditional : IConcoction
     {
-        readonly public List<(object cond, TokenTree.Scope then)> condThen = [];
+        readonly public List<(TokenTree.INode[] cond, TokenTree.Scope then)> condThen = [];
         public TokenTree.Scope ifNone = null;
 
-        public string ToAsm(string uniqueIdentifier)
+        public Asm ToAsm(string uniqueIdentifier)
         {
-            var parts = condThen.SelectMany(IEnumerable<string> (item, n) => [
-                $"{item.cond}",
-                $"jz .else_{uniqueIdentifier}_{n}",
-                $"{item.then}",
-                $"jmp .finally_{uniqueIdentifier}",
-                $".else_{uniqueIdentifier}_{n}:",
-            ]);
+            Asm parts = new(condThen.SelectMany(IEnumerable<Asm.IToken[]>(item, n) => [
+                [
+                    new Asm.Comment($"todo:\n```\n{string.Join(',', item.cond.Select(x => x.ToString()))}\n```"),
+                ],
+                [
+                    new Asm.Op("jz"),
+                    new Asm.Lbl($".else_{uniqueIdentifier}_{n}"),
+                    new Asm.Comment($"if the line above evaluates to false (0), skip to condition {n+1}"),
+                ],
+                [
+                    new Asm.Comment($"todo:\n```\n{item.then}\n```"),
+                ],
+                [
+                    new Asm.Op("jmp"),
+                    new Asm.Lbl($".finally_{uniqueIdentifier}"),
+                    new Asm.Comment("the condition has completed, so none of the other conditions need to be tried"),
+                ],
+                [
+                    new Asm.Lbl($".else_{uniqueIdentifier}_{n}:"),
+                    new Asm.Comment($"condition {n+1}"),
+                ],
+            ]));
             if (ifNone is not null) {
-                parts = parts.Concat([
-                    $"{ifNone}",
-                ]);
+                parts.lines.Add([new Asm.Comment($"todo:\n```\n{ifNone}\n```")]);
             }
-            parts = parts.Concat([
-                $".finally_{uniqueIdentifier}:",
+            parts.lines.Add([
+                new Asm.Lbl($".finally_{uniqueIdentifier}:"),
+                new Asm.Comment("continue with the rest of the program after completing *any one* of the conditions"),
             ]);
-            return string.Join('\n', parts);
+            return parts;
         }
     }
 
-    private static IEnumerable<IConcoction> Concoct(TokenTree tree)
+    private static IEnumerable<IConcoction> Concoct(TokenTree.Scope scope)
     {
         static T ExtractNext<T>(ref IEnumerable<T> iter)
         {
@@ -623,12 +675,12 @@ public static class NadeSy
             iter = iter.Skip(1);
             return item;
         }
-        static IEnumerable<T> Extract<T>(ref IEnumerable<T> iter, int n)
-        {
-            var subset = iter.Take(n);
-            iter = iter.Skip(n);
-            return subset;
-        }
+        // static IEnumerable<T> Extract<T>(ref IEnumerable<T> iter, int n)
+        // {
+        //     var subset = iter.Take(n);
+        //     iter = iter.Skip(n);
+        //     return subset;
+        // }
         static IEnumerable<T> ExtractWhile<T>(ref IEnumerable<T> iter, Func<T, bool> pred)
         {
             var subset = iter.TakeWhile(pred);
@@ -649,7 +701,7 @@ public static class NadeSy
         }
 
         List<IConcoction> items = [];
-        foreach (var statement in tree.globalScope.items)
+        foreach (var statement in scope.items)
         {
             GD.Print(); // gap
             GD.PrintRich(statement.ToLineString());
@@ -666,7 +718,7 @@ public static class NadeSy
                                 var then = ExtractScope(ref iter);
                                 GD.PrintRich($"if true: {then}");
                                 items.Add(new Conditional() {
-                                    condThen = { (cond, then) }
+                                    condThen = { ([..cond], then) }
                                 });
                             }
                             break;
@@ -680,7 +732,7 @@ public static class NadeSy
                                     GD.PrintRich($"{cond.Count()} token condition: [{string.Join(", ",cond)}]");
                                     var then = ExtractScope(ref iter);
                                     GD.PrintRich($"if true: {then}");
-                                    conditional.condThen.Add((cond, then));
+                                    conditional.condThen.Add(([..cond], then));
                                 }
                                 else throw new SyntaxErrorException("'else' cannot start a statement");
                             }
@@ -728,8 +780,8 @@ public static class NadeSy
             GD.PrintRich($"Generated token tree:\n{tree}\n");
 
             GD.PrintRich("Concocting...");
-            var concoction = Concoct(tree);
-            GD.PrintRich($"Generated concoction: {concoction}");
+            var concoction = Concoct(tree.globalScope);
+            GD.PrintRich($"Generated concoction:\n```\n{string.Join('\n', concoction.Select(x => x.ToAsm(x.GetHashCode().ToString()).ToRich()))}\n```");
 
             throw new NotImplementedException("todo: convert concoction into assembly");
             // return ROM.Parse(";todo");

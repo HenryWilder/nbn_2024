@@ -14,6 +14,8 @@ public static class NadeSy
         {
             _ when char.IsDigit(word[0])
                 => new NumLiteral(short.Parse(word)),
+            "else if"
+                => new Keyword(Kw.ElseIf),
             "if"
                 => new Keyword(Kw.If),
             "else"
@@ -110,31 +112,29 @@ public static class NadeSy
     }
 
     #region Keyword
-
     public enum Kw
     {
         If,
         Else,
+        ElseIf,
         For,
         In,
         While,
         Let,
         Const,
     }
-    class Keyword(Kw value) : IToken
+    class Keyword(Kw kw) : IToken
     {
-        public Kw value = value;
-        public override string ToString() => $"kw({value})";
+        public Kw kw = kw;
+        public override string ToString() => $"[color=#4ec9b0]kw[/color]([color=#c586c0]{kw}[/color])";
     }
-
     #endregion
 
     #region Variable
-
     class Variable(string name) : IToken
     {
         public string name = name;
-        public override string ToString() => $"var({name})";
+        public override string ToString() => $"[color=#4ec9b0]var[/color]([color=#9cdcfe]{name}[/color])";
     }
 
     #endregion
@@ -144,13 +144,11 @@ public static class NadeSy
     class NumLiteral(short value) : IToken
     {
         public short value = value;
-        public override string ToString() => $"num({value})";
+        public override string ToString() => $"[color=#4ec9b0]num[/color]([color=#b5cea8]{value}[/color])";
     }
-
     #endregion
 
     #region Operator
-
     public enum Op
     {
         /// <summary> <c>+</c> </summary>
@@ -215,9 +213,8 @@ public static class NadeSy
     class Operator(Op op) : IToken
     {
         public Op op = op;
-        public override string ToString() => $"op({op})";
+        public override string ToString() => $"[color=#4ec9b0]op[/color]([color=#dcdcaa]{op}[/color])";
     }
-
     #endregion
 
     #region Scope
@@ -263,7 +260,7 @@ public static class NadeSy
     {
         public ScopeType tag = tag;
         public ScopeDirection dir = dir;
-        public override string ToString() => $"scope({tag}.{dir})";
+        public override string ToString() => $"[color=#4ec9b0]scope[/color]([color=#4fc1ff]{tag}.{dir}[/color])";
     }
     #endregion
 
@@ -278,7 +275,16 @@ public static class NadeSy
         RegexOptions.Compiled);
 
     // language=regex
-    private static readonly string RX_KEYWORD_STR = string.Join('|', Enum.GetNames<Kw>());
+    private static readonly string RX_KEYWORD_STR = string.Join('|', [
+        @"else if", // must come before `if` and `else`
+        @"if",
+        @"let",
+        @"const",
+        @"else",
+        @"for",
+        @"while",
+        @"in",
+    ]);
 
     // language=regex
     private const string RX_VARNAME_STR = @"[a-zA-Z_][a-zA-Z_0-9]*";
@@ -298,7 +304,7 @@ public static class NadeSy
     ]);
 
     private static readonly Regex rxTokenize = new(
-        @$"\b(?:{RX_KEYWORD_STR}|{RX_VARNAME_STR}|{RX_NUM_LITERAL_STR})\b|{RX_SCOPING_STR}|{RX_OPERATOR_STR}",
+        @$"\b(?:{RX_KEYWORD_STR}|{RX_VARNAME_STR}|{RX_NUM_LITERAL_STR})\b|{RX_SCOPING_STR}|{RX_OPERATOR_STR}|\S",
         RegexOptions.Compiled);
 
     private static IToken[] Tokenize(string code)
@@ -314,12 +320,12 @@ public static class NadeSy
                 try
                 {
                     var token = IToken.ParseWord(word);
-                    GD.Print($"word {i}: \"{word}\" => {token}");
+                    GD.PrintRich($"[color=#ce9178]\"{word}\"[/color] => {token}");
                     return token;
                 }
                 catch
                 {
-                    GD.Print($"word {i}: [err]");
+                    GD.PrintRich($"[color=#ce9178]\"{word}\"[/color] => [color=#d16969][err][/color]");
                     throw;
                 }
             })
@@ -378,9 +384,9 @@ public static class NadeSy
                 string inner = string.Join("", Items.Select(x => $"\n{x},")).Replace("\n", "\n  ");
                 return !string.IsNullOrEmpty(inner) ? inner + '\n' : string.Empty;
             }
-
+            public abstract string Identifier(string content);
             public override string ToString()
-                => $"{Tag}\n[{InnerString()}]";
+                => Identifier(InnerString());
         }
 
         public class SubExpr(ScopeType tag) : Layer, IExprItem
@@ -389,8 +395,8 @@ public static class NadeSy
             public override IEnumerable<INode> Items => items;
             public override void Push(INode what) => items.Add(TryCast<IExprItem>(what));
             public readonly List<IExprItem> items = [];
-            public override string ToString()
-                => $"({InnerString()})";
+            public override string Identifier(string content)
+                => $"[color=#ffd700]([/color]{content}[color=#ffd700])[/color]";
         }
 
         // A statement can contain anything
@@ -400,6 +406,9 @@ public static class NadeSy
             public override IEnumerable<INode> Items => items;
             public override void Push(INode what) => items.Add(what);
             public readonly List<INode> items = [];
+
+            public override string Identifier(string content)
+                => $"[color=#179fff]:[[/color]{content}[color=#179fff]];[/color]";
         }
 
         public class Scope : Layer
@@ -409,8 +418,8 @@ public static class NadeSy
             public override void Push(INode what) => items.Add(TryCast<Statement>(what));
             public readonly List<Statement> items = [];
 
-            public override string ToString()
-                => $"{{{InnerString()}}}";
+            public override string Identifier(string content)
+                => $"[color=#da70d6]{{[/color]{content}[color=#da70d6]}}[/color]";
         }
 
         public readonly Scope globalScope = new();
@@ -432,7 +441,17 @@ public static class NadeSy
 
             public Layer CurrentScope => scopeStack.First().Item1;
 
-            private string StackPath => string.Join('.', scopeStack.AsEnumerable().Reverse().Select(layer => $"{layer.Item1.Tag}{layer.Item2}"));
+            private static string PathFormat<T, U>(IEnumerable<T> path, Func<T, (Layer, U)> splitter) =>
+                string.Join("->", path.Select((x) => {
+                    var (layer, inner) = splitter(x);
+                    return layer.Identifier(inner.ToString());
+                }));
+
+            private static string PathFormat<T>(IEnumerable<T> path, Func<T, Layer> splitter) =>
+                PathFormat(path, x => (splitter(x), string.Empty));
+
+            private string StackPath =>
+                PathFormat(scopeStack.AsEnumerable().Reverse(), (layer) => (layer.Item1, layer.Item2));
 
             private static ScopeType[] ImpliedPath(ScopeType tag)
                 => tag switch
@@ -448,7 +467,7 @@ public static class NadeSy
 
             public void PushAtom(IToken token)
             {
-                GD.Print($"{StackPath} += {token}");
+                GD.PrintRich($"{StackPath} += {token}");
                 Atom newAtom = new(token);
                 CurrentScope.Push(newAtom);
             }
@@ -462,12 +481,6 @@ public static class NadeSy
                     CurrentScope.Push(newScope);
                     scopeStack.Push((newScope, i));
                 }
-            }
-
-            public void PushScope(ScopeType tag)
-            {
-                GD.Print($"{StackPath} += {tag}");
-                PushScopes(ImpliedPath(tag));
             }
 
             private void PopScopes(ScopeType[] tags)
@@ -492,10 +505,17 @@ public static class NadeSy
                 }
             }
 
+            public void PushScope(ScopeType tag)
+            {
+                var path = ImpliedPath(tag);
+                GD.PrintRich($"{StackPath} += {PathFormat(path, Layer.MakeFrom)}");
+                PushScopes(path);
+            }
+
             public void PopScope(ScopeType tag)
             {
                 var path = ImpliedPath(tag);
-                GD.Print($"{StackPath} -= {string.Join('.', path)}");
+                GD.PrintRich($"{StackPath} -= {PathFormat(path, Layer.MakeFrom)}");
                 PopScopes(path);
             }
 
@@ -526,32 +546,117 @@ public static class NadeSy
     #endregion
 
     #region Concoctor
-    private static object Concoct(TokenTree tree)
+    interface IConcoction {}
+
+    /// <summary>
+    /// kw(If), ($cond1), {$then1},
+    /// kw(ElseIf), ($cond2), {$then2},
+    /// ...
+    /// kw(Else), {$ifNone}
+    /// </summary>
+    class Conditional : IConcoction
     {
+        readonly public List<(object cond, TokenTree.Scope then)> condThen = [];
+        public TokenTree.Scope ifNone = null;
+
+        public string ToAsm(string uniqueIdentifier)
+        {
+            var parts = condThen.SelectMany(IEnumerable<string> (item, n) => [
+                $"{item.cond}",
+                $"jz .else_{uniqueIdentifier}_{n}",
+                $"{item.then}",
+                $"jmp .finally_{uniqueIdentifier}",
+                $".else_{uniqueIdentifier}_{n}:",
+            ]);
+            if (ifNone is not null) {
+                parts = parts.Concat([
+                    $"{ifNone}",
+                ]);
+            }
+            parts = parts.Concat([
+                $".finally_{uniqueIdentifier}:",
+            ]);
+            return string.Join('\n', parts);
+        }
+    }
+
+    private static IEnumerable<IConcoction> Concoct(TokenTree tree)
+    {
+        List<IConcoction> items = [];
         foreach (var statement in tree.globalScope.items)
         {
-            GD.Print(statement);
+            GD.PrintRich(statement);
+            IEnumerable<TokenTree.INode> iter = statement.items;
+            switch (iter.FirstOrDefault())
+            {
+                case TokenTree.Atom { token: Keyword { kw: var kw } }:
+                    static IEnumerable<TokenTree.INode> RipConditionOutOf(ref IEnumerable<TokenTree.INode> iter)
+                    {
+                        var cond = iter.TakeWhile(x => x is not TokenTree.Scope);
+                        int num = cond.Count();
+                        if (num == 0)
+                            throw new SyntaxErrorException("If statement must ask something");
+                        iter = iter.Skip(num);
+                        return cond;
+                    }
+                    static TokenTree.Scope RipScopeOutOf(ref IEnumerable<TokenTree.INode> iter)
+                    {
+                        if (iter.FirstOrDefault() is not TokenTree.Scope then)
+                            throw new SyntaxErrorException("If statement must do something");
+                        iter = iter.Skip(1);
+                        return then;
+                    }
+                    switch (kw) {
+                        case Kw.If:
+                            {
+                                GD.PrintRich("If statement");
+                                var cond = RipConditionOutOf(ref iter);
+                                GD.PrintRich($"{cond.Count()} token condition: {string.Join(',',cond)}");
+                                var then = RipScopeOutOf(ref iter);
+                                GD.PrintRich($"if true: {then}");
+                                items.Add(new Conditional() {
+                                    condThen = { (cond, then) }
+                                });
+                            }
+                            break;
+
+                        case Kw.ElseIf:
+                            break;
+
+                        case Kw.Else:
+                            break;
+
+                        default:
+                            GD.PrintErr($"todo: {kw}");
+                            break;
+                    }
+                    break;
+
+                default:
+                    GD.PrintErr("I don't know what this is...");
+                    break;
+            }
         }
-        return null;
+        return items;
     }
     #endregion
 
     #region Compiler
     public static ROM Compile(string code)
     {
-        GD.Print($"Compiling source code:\n```\n{code}\n```");
+        GD.PrintRich($"Compiling source code:\n```\n{code}\n```");
         try
         {
-            GD.Print("Tokenizing...");
+            GD.PrintRich("Tokenizing...");
             var tokens = Tokenize(code);
 
-            GD.Print("Building token tree...");
+            GD.PrintRich("Building token tree...");
             var tree = Parse(tokens);
-            GD.Print($"Generated token tree:\n{tree}\n");
+            GD.PrintRich($"Generated token tree:\n{tree}\n");
 
-            GD.Print("Concocting...");
+            GD.PrintRich("Concocting...");
             var concoction = Concoct(tree);
-            GD.Print($"Generated concoction: {concoction}");
+            GD.PrintRich($"Generated concoction: {concoction}");
 
             throw new NotImplementedException("todo: convert concoction into assembly");
             // return ROM.Parse(";todo");
@@ -566,8 +671,16 @@ public static class NadeSy
 
     #region Example ROM
     public static readonly ROM ExampleSy = Compile(@"
+let a = 5;
+if a == 3 {
+    // :3
+} else if a == 6 {
+    // :3
+} else {
+    // :3
+}
 const NUM_LOOPS = 4;
-for i in 0..NUM_LOOPS /* loop from 0 to N (4) */ {
+for (i in 0..NUM_LOOPS /* loop from 0 to NUM_LOOPS (i.e. 4) */) {
     // do nothing
 }
 explode();

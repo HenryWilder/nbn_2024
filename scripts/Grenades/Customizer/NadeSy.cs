@@ -606,15 +606,15 @@ public static class NadeSy
 
         public readonly struct Comment(string text) : IToken {
             readonly string text = ";" + text.Replace("\n", "\n;");
-            public override readonly string ToString() => text;
+            public override readonly string ToString() => ""; // make it easier on the assembly parser by not putting the comments in to begin with
             public readonly string ToRich() => string.Join('\n', text.Split('\n').Select(line => $"[color=#6a9955]{line}[/color]"));
         }
 
         public List<IToken[]> lines = [..lines];
         public override string ToString()
-            => string.Join('\n', lines.Select(x => string.Join(' ', x.Select(x => x.ToString()))));
+            => string.Join('\n', lines.Select(x => string.Join(' ', x.Select(y => y.ToString()))));
         public string ToRich()
-            => string.Join('\n', lines.Select(x => string.Join(' ', x.Select(x => x.ToRich()))));
+            => string.Join('\n', lines.Select(x => string.Join(' ', x.Select(y => y.ToRich()))));
     }
 
     interface IConcoction {
@@ -667,27 +667,32 @@ public static class NadeSy
         }
     }
 
+    static T ExtractNext<T>(ref IEnumerable<T> iter)
+    {
+        var item = iter.FirstOrDefault();
+        iter = iter.Skip(1);
+        return item;
+    }
+    // static IEnumerable<T> Extract<T>(ref IEnumerable<T> iter, int n)
+    // {
+    //     var subset = iter.Take(n);
+    //     iter = iter.Skip(n);
+    //     return subset;
+    // }
+    static IEnumerable<T> ExtractWhile<T>(ref IEnumerable<T> iter, Func<T, bool> pred)
+    {
+        var subset = iter.TakeWhile(pred);
+        iter = iter.Skip(subset.Count());
+        return subset;
+    }
+
+    private static IEnumerable<IConcoction> Concoct(TokenTree.SubExpr expr)
+    {
+        throw new NotImplementedException();
+    }
+
     private static IEnumerable<IConcoction> Concoct(TokenTree.Scope scope)
     {
-        static T ExtractNext<T>(ref IEnumerable<T> iter)
-        {
-            var item = iter.FirstOrDefault();
-            iter = iter.Skip(1);
-            return item;
-        }
-        // static IEnumerable<T> Extract<T>(ref IEnumerable<T> iter, int n)
-        // {
-        //     var subset = iter.Take(n);
-        //     iter = iter.Skip(n);
-        //     return subset;
-        // }
-        static IEnumerable<T> ExtractWhile<T>(ref IEnumerable<T> iter, Func<T, bool> pred)
-        {
-            var subset = iter.TakeWhile(pred);
-            iter = iter.Skip(subset.Count());
-            return subset;
-        }
-
         static IEnumerable<TokenTree.INode> ExtractCondition(ref IEnumerable<TokenTree.INode> iter)
         {
             var cond = ExtractWhile(ref iter, x => x is not TokenTree.Scope);
@@ -781,10 +786,15 @@ public static class NadeSy
 
             GD.PrintRich("Concocting...");
             var concoction = Concoct(tree.globalScope);
-            GD.PrintRich($"Generated concoction:\n```\n{string.Join('\n', concoction.Select(x => x.ToAsm(x.GetHashCode().ToString()).ToRich()))}\n```");
-
-            throw new NotImplementedException("todo: convert concoction into assembly");
-            // return ROM.Parse(";todo");
+            var asms = concoction.Select(x => x.ToAsm(x.GetHashCode().ToString()));
+            {
+                var richLines = asms.Select(x => x.ToRich());
+                var rich = string.Join('\n', richLines);
+                GD.PrintRich($"Generated concoction:\n```\n{rich}\n```");
+            }
+            var asmLines = asms.Select(x => x.ToString());
+            var asm = string.Join('\n', asmLines);
+            return ROM.Parse(asm);
         }
         catch (Exception e)
         {

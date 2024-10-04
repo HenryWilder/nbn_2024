@@ -111,7 +111,7 @@ public class ROM
     #region Parse from string
     public static ROM Parse(string code)
     {
-        GD.Print($"Compiling source code:\n```\n{code}\n```");
+        GD.Print($"Parsing assembly:\n```\n{code}\n```");
 
         Dictionary<string, short> labels = new();
 

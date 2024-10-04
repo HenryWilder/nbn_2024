@@ -8,7 +8,7 @@ public partial class Customizer : GrenadeBase
 
     public override void _Ready()
     {
-        Insert(NadeSy.ExampleSy); // todo: have user insert a ROM manually
+        Insert(ROM.ExampleROM); // todo: have user insert a ROM manually
     }
 
     public override void _Process(double delta)

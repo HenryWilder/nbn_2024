@@ -56,6 +56,47 @@ public class ROM
             if (num > 2) parts.Add((opcode.IsArg2Immediate ? "lit" : "reg") + $"({arg2})");
             return string.Join(' ', parts);
         }
+
+        public string ToRich()
+        {
+            const string COLOR_LABEL    = "[color=#dcdcaa]";
+            const string COLOR_VARIABLE = "[color=#9cdcfe]";
+            const string COLOR_LITERAL  = "[color=#b5cea8]";
+            const string COLOR_NORMAL   = "[color=#569cd6]";
+            const string COLOR_CONTROL  = "[color=#c586c0]";
+
+            var op = opcode.Operation;
+            var rojaStr = (op.IsJump() ? $"{COLOR_LABEL}line " : $"{COLOR_VARIABLE}register ") + $"{roja}[/color]";
+            var arg1Str = (opcode.IsArg1Immediate ? COLOR_LITERAL : $"{COLOR_VARIABLE}the value in register ") + $"{arg1}[/color]";
+            var arg2Str = (opcode.IsArg2Immediate ? COLOR_LITERAL : $"{COLOR_VARIABLE}the value in register ") + $"{arg2}[/color]";
+
+            return op switch
+            {
+                Instruction.NOP => COLOR_CONTROL + $"do nothing",
+                Instruction.MOV => COLOR_NORMAL  + $"set {rojaStr} equal to {arg1Str}",
+                Instruction.LDR => COLOR_NORMAL  + $"load RAM at index {arg1Str} into {rojaStr}",
+                Instruction.SDR => COLOR_NORMAL  + $"save {rojaStr} to RAM at index {arg1Str}",
+                Instruction.ADD => COLOR_NORMAL  + $"calculate {arg1Str} + {arg2Str} and store the result in {rojaStr}",
+                Instruction.SUB => COLOR_NORMAL  + $"calculate {arg1Str} - {arg2Str} and store the result in {rojaStr}",
+                Instruction.MUL => COLOR_NORMAL  + $"calculate {arg1Str} * {arg2Str} and store the result in {rojaStr}",
+                Instruction.DIV => COLOR_NORMAL  + $"calculate {arg1Str} / {arg2Str} and store the result in {rojaStr}",
+                Instruction.AND => COLOR_NORMAL  + $"calculate bitwise {arg1Str} AND {arg2Str} and store the result in {rojaStr}",
+                Instruction.ORR => COLOR_NORMAL  + $"calculate bitwise {arg1Str} OR {arg2Str} and store the result in {rojaStr}",
+                Instruction.NOT => COLOR_NORMAL  + $"calculate bitwise NOT {arg1Str} and store the result in {rojaStr}",
+                Instruction.XOR => COLOR_NORMAL  + $"calculate bitwise {arg1Str} XOR {arg2Str} and store the result in {rojaStr}",
+                Instruction.JMP => COLOR_CONTROL + $"jump to {rojaStr}",
+                Instruction.JE  => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} equals {arg1Str}",
+                Instruction.JNE => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} does not equal {arg1Str}",
+                Instruction.JZ  => COLOR_CONTROL + $"jump to {rojaStr} if the zero bit is set",
+                Instruction.JNZ => COLOR_CONTROL + $"jump to {rojaStr} if the zero bit is not set",
+                Instruction.JG  => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} is greater than {arg2Str}",
+                Instruction.JL  => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} is less than {arg2Str}",
+                Instruction.JGE => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} is greater than or equal to {arg2Str}",
+                Instruction.JLE => COLOR_CONTROL + $"jump to {rojaStr} if {arg1Str} is less than or equal to {arg2Str}",
+                Instruction.JS  => COLOR_CONTROL + $"jump to {rojaStr} if the sign bit is set",
+                _ => throw new NotImplementedException(),
+            } + "[/color]";
+        }
     }
     #endregion
 

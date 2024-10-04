@@ -39,6 +39,39 @@ public static class InstructionExtension {
 
     public static bool IsJump(this Device.CPU.Instruction op)
         => op is JMP or JE or JNE or JZ or JNZ or JG or JL or JGE or JLE or JS;
+
+    public static string Rich(this Device.CPU.Instruction op)
+    {
+        const string COLOR_NORMAL = "#569cd6";
+        const string COLOR_CONTROL = "#c586c0";
+        var (text, color) = op switch
+        {
+            NOP => ("no operation",             COLOR_NORMAL),
+            MOV => ("move",                     COLOR_NORMAL),
+            LDR => ("load from ram",            COLOR_NORMAL),
+            SDR => ("save to ram",              COLOR_NORMAL),
+            ADD => ("add",                      COLOR_NORMAL),
+            SUB => ("subtract",                 COLOR_NORMAL),
+            MUL => ("multiply",                 COLOR_NORMAL),
+            DIV => ("divide",                   COLOR_NORMAL),
+            AND => ("bit and",                  COLOR_NORMAL),
+            ORR => ("bit or",                   COLOR_NORMAL),
+            NOT => ("bit invert",               COLOR_NORMAL),
+            XOR => ("bit xor",                  COLOR_NORMAL),
+            JMP => ("jump",                     COLOR_CONTROL),
+            JE  => ("jump if equal",            COLOR_CONTROL),
+            JNE => ("jump if not equal",        COLOR_CONTROL),
+            JZ  => ("jump if zero",             COLOR_CONTROL),
+            JNZ => ("jump if not zero",         COLOR_CONTROL),
+            JG  => ("jump if greater",          COLOR_CONTROL),
+            JL  => ("jump if less",             COLOR_CONTROL),
+            JGE => ("jump if greater or equal", COLOR_CONTROL),
+            JLE => ("jump if less or equal",    COLOR_CONTROL),
+            JS  => ("jump if negative",         COLOR_CONTROL),
+            _ => throw new NotImplementedException(),
+        };
+        return $"[color={color}]{text}[/color]";
+    }
 }
 
 public class Device
@@ -291,7 +324,7 @@ public class Device
             var op = line.opcode.Operation;
             short arg1 = reg[line.opcode.IsArg1Immediate, line.arg1];
             short arg2 = reg[line.opcode.IsArg2Immediate, line.arg2];
-            GD.Print($"{reg.Tms}ms: Running line {status.PC}: \"{line}\" | arg1: {arg1} arg2: {arg2}");
+            GD.PrintRich($"[color=cornflowerblue]{reg.Tms}ms:[/color] [color=#dcdcaa]line {status.PC}:[/color] {line.ToRich()}");
 
             int? result = null;
             bool isJumping = false;

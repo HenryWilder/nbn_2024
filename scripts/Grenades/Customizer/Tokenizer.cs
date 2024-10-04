@@ -8,7 +8,7 @@ using Godot;
 public readonly struct Tokenizer<Token>
 {
     /// <summary>
-    /// 
+    ///
     /// </summary>
     /// <param name="reserved"> NOT regex </param>
     /// <param name="numericLiteral"> regex </param>
@@ -26,7 +26,7 @@ public readonly struct Tokenizer<Token>
         // smaller tokens have a chance of being contained inside larger tokens and disassembling them
         reserved = [..reserved.OrderByDescending(x => x.str.Length)];
         rxWord = new(
-            @$"\b(?:{string.Join('|',reserved.Select(x=>x.str))}|{variableName.pattern})\b|{numericLiteral.pattern}", 
+            @$"\b(?:{string.Join('|',reserved.Select(x=>Regex.Escape(x.str)))}|{variableName.pattern})\b|{numericLiteral.pattern}",
             RegexOptions.Compiled);
         reservedLookup = reserved.ToDictionary(x => x.str, x => x.token);
         rxIsNumLiteral = new(numericLiteral.pattern, RegexOptions.Compiled);

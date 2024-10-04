@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -86,21 +87,21 @@ public static class NadeSy
             ".."
                 => new Operator(Op.Range),
             ","
-                => new ScopeControl(ScopeType.SoftExpr, ScopeDirection.Pop),
+                => new ScopeControl(ScopeType.Inline, ScopeDirection.Pop),
             ";"
-                => new ScopeControl(ScopeType.SoftStmt, ScopeDirection.Pop),
+                => new ScopeControl(ScopeType.Statement, ScopeDirection.Pop),
             "("
                 => new ScopeControl(ScopeType.Expression, ScopeDirection.Push),
             ")"
                 => new ScopeControl(ScopeType.Expression, ScopeDirection.Pop),
             "{"
-                => new ScopeControl(ScopeType.Statement, ScopeDirection.Push),
+                => new ScopeControl(ScopeType.Scope, ScopeDirection.Push),
             "}"
-                => new ScopeControl(ScopeType.Statement, ScopeDirection.Pop),
+                => new ScopeControl(ScopeType.Scope, ScopeDirection.Pop),
             "["
-                => new ScopeControl(ScopeType.Indexer, ScopeDirection.Push),
+                => new ScopeControl(ScopeType.Subscript, ScopeDirection.Push),
             "]"
-                => new ScopeControl(ScopeType.Indexer, ScopeDirection.Pop),
+                => new ScopeControl(ScopeType.Subscript, ScopeDirection.Pop),
             _
                 => throw new NotImplementedException($"Unknown token: \"{word}\""),
         };
@@ -203,26 +204,36 @@ public static class NadeSy
 
     enum ScopeType
     {
-        /// <summary> <c>()</c> </summary>
-        Expression,
         /// <summary>
-        /// Basically an item in a list.
-        /// Implied by there being a <c>SoftStmt</c>/<c>Expression</c> scope.<br/>
+        /// <c>(...)</c>
+        /// Part of a statement, whose contents get higher precedence than if they weren't grouped.
+        /// </summary>
+        Expression,
+
+        /// <summary>
+        /// <c>[...]</c>
+        /// </summary>
+        Subscript,
+
+        /// <summary>
+        /// An expression without parentheses---a list item.
+        /// Implied by there being an <c>Expression</c> or <c>Indexer</c>.<br/>
         /// Separated by <c>,</c> and popped automatically when popping out of a containing scope.
         /// </summary>
-        SoftExpr,
+        Inline,
 
-        /// <summary> <c>{}</c> </summary>
-        Statement,
+        /// <summary>
+        /// <c>{...}</c>
+        /// A collection of statements.
+        /// </summary>
+        Scope,
+
         /// <summary>
         /// Basically a "line".
-        /// Implied by there being a <c>Statement</c> scope.<br/>
+        /// Implied by there being a <c>Scope</c>.<br/>
         /// Separated by <c>;</c> and popped automatically when popping out of a containing scope.
         /// </summary>
-        SoftStmt,
-
-        /// <summary> <c>[]</c> </summary>
-        Indexer,
+        Statement,
     }
     enum ScopeDirection
     {
@@ -240,70 +251,117 @@ public static class NadeSy
     {
         public interface INode { }
 
-        public class Atom(IToken token) : INode
+        public interface IExprItem : INode { }
+
+        public class Atom(IToken token) : INode, IExprItem
         {
             public readonly IToken token = token;
             public override string ToString() => $"{token}";
         }
 
-        public class Layer(ScopeType tag) : INode
+        public abstract class Layer : INode
         {
-            public readonly ScopeType tag = tag;
-            public readonly List<INode> items = [];
-            public override string ToString()
+            public static Layer MakeFrom(ScopeType tag)
+                => tag switch
+                {
+                    ScopeType.Expression or ScopeType.Inline => new SubExpr(tag),
+                    ScopeType.Scope => new Scope(),
+                    ScopeType.Statement => new Statement(),
+                    _ => throw new NotImplementedException($"todo: {tag}"),
+                };
+
+            public abstract ScopeType Tag { get; }
+            public abstract IEnumerable<INode> Items { get; }
+
+            protected T TryCast<T>(INode what) where T: INode
             {
-                var inner = string.Join("", items.Select(x => $"\n{x},")).Replace("\n", "\n  ");
-                return $"{tag}\n[{inner}\n]";
+                if (what is T item) return item;
+                else throw new SyntaxErrorException($"{what} is not valid in {Tag}");
             }
+            public abstract void Push(INode what);
+
+            protected string InnerString()
+            {
+                string inner = string.Join("", Items.Select(x => $"\n{x},")).Replace("\n", "\n  ");
+                return !string.IsNullOrEmpty(inner) ? inner + '\n' : string.Empty;
+            }
+
+            public override string ToString()
+                => $"{Tag}\n[{InnerString()}]";
         }
 
-        public readonly Layer root = new(ScopeType.Statement);
+        public class SubExpr(ScopeType tag) : Layer, IExprItem
+        {
+            public override ScopeType Tag => tag;
+            public override IEnumerable<INode> Items => items;
+            public override void Push(INode what) => items.Add(TryCast<IExprItem>(what));
+            public readonly List<IExprItem> items = [];
+        }
 
-        public override string ToString() => root.ToString();
+        // A statement can contain anything
+        public class Statement : Layer
+        {
+            public override ScopeType Tag => ScopeType.Statement;
+            public override IEnumerable<INode> Items => items;
+            public override void Push(INode what) => items.Add(what);
+            public readonly List<INode> items = [];
+        }
+
+        public class Scope : Layer
+        {
+            public override ScopeType Tag => ScopeType.Scope;
+            public override IEnumerable<INode> Items => items;
+            public override void Push(INode what) => items.Add(TryCast<Statement>(what));
+            public readonly List<Statement> items = [];
+
+            public override string ToString()
+                => $"{{{InnerString()}}}";
+        }
+
+        public readonly Scope globalScope = new();
+
+        public override string ToString() => globalScope.ToString();
 
         public class Builder {
             public Builder()
             {
                 tree = new();
                 scopeStack = new();
-                scopeStack.Push((tree.root, 0));
+                scopeStack.Push((tree.globalScope, 0));
             }
 
-            TokenTree tree;
-            Stack<(Layer, int)> scopeStack;
+            readonly TokenTree tree;
+            readonly Stack<(Layer, int)> scopeStack;
 
             public Layer CurrentScope => scopeStack.First().Item1;
 
-            private string StackPath => string.Join('.', scopeStack.AsEnumerable().Reverse().Select(layer => $"{layer.Item1.tag}{layer.Item2}"));
+            private string StackPath => string.Join('.', scopeStack.AsEnumerable().Reverse().Select(layer => $"{layer.Item1.Tag}{layer.Item2}"));
 
             private static ScopeType[] ImpliedPath(ScopeType tag)
                 => tag switch {
-                    ScopeType.Statement
-                        => [tag, ..ImpliedPath(ScopeType.SoftStmt)],
+                    ScopeType.Scope
+                        => [tag, ScopeType.Statement],
 
-                    ScopeType.Expression or ScopeType.SoftStmt or ScopeType.Indexer
-                        => [tag, ..ImpliedPath(ScopeType.SoftExpr)],
+                    ScopeType.Expression or ScopeType.Subscript
+                        => [tag, ScopeType.Inline],
 
-                    ScopeType.SoftExpr
-                        => [tag],
-
-                    _ => throw new NotImplementedException(),
+                    _ => [tag],
                 };
 
             public void PushAtom(IToken token)
             {
                 GD.Print($"{StackPath} += {token}");
                 Atom newAtom = new(token);
-                CurrentScope.items.Add(newAtom);
+                CurrentScope.Push(newAtom);
             }
 
             private void PushScopes(ScopeType[] tags)
             {
                 foreach (var tag in tags)
                 {
-                    Layer newScope = new(tag);
-                    int i = CurrentScope.items.Count(x => x is Layer);
-                    CurrentScope.items.Add(newScope);
+                    var newScope = Layer.MakeFrom(tag);
+                    int i = CurrentScope.Items.Count(x => x is Layer);
+                    CurrentScope.Push(newScope);
                     scopeStack.Push((newScope, i));
                 }
             }
@@ -318,19 +376,20 @@ public static class NadeSy
             {
                 foreach (var tag in tags.Reverse())
                 {
+                    var currentScope = CurrentScope;
                     if (scopeStack.Count == 1)
                     {
                         throw new SyntaxErrorException($"Cannot pop global scope");
                     }
-                    else if (CurrentScope.tag != tag)
+                    else if (currentScope.Tag != tag)
                     {
-                        throw new SyntaxErrorException($"Cannot pop {tag} scope when current scope is {CurrentScope.tag}");
+                        throw new SyntaxErrorException($"Cannot pop {tag} scope when current scope is {currentScope.Tag}");
                     }
                     scopeStack.Pop();
                 }
                 // closing a statement implicitly ends the soft statement
-                if (tags.First() is ScopeType.Statement && CurrentScope.tag == ScopeType.SoftExpr) {
-                    PopScope(ScopeType.SoftStmt);
+                if (tags.First() is ScopeType.Scope && CurrentScope.Tag == ScopeType.Statement) {
+                    PopScope(ScopeType.Statement);
                 }
             }
 
@@ -343,16 +402,13 @@ public static class NadeSy
 
             public void PushToken(IToken token)
             {
-                PushScopes([..ImpliedPath(CurrentScope.tag).Skip(1)]);
+                var missing = ImpliedPath(CurrentScope.Tag).Skip(1).ToArray();
+                if (missing.Length > 0) PushScopes(missing);
                 if (token is ScopeControl { tag: var tag, dir: var dir })
                 {
                     switch (dir) {
-                        case ScopeDirection.Push:
-                            PushScope(tag);
-                            break;
-                        case ScopeDirection.Pop:
-                            PopScope(tag);
-                            break;
+                        case ScopeDirection.Push: PushScope(tag); break;
+                        case ScopeDirection.Pop:  PopScope(tag);  break;
                     }
                 }
                 else
@@ -428,11 +484,17 @@ public static class NadeSy
             TokenTree.Builder builder = new();
             foreach (var token in tokens)
             {
-                // GD.Print($"Token: {token}");
+                GD.Print($"Token: {token}");
                 builder.PushToken(token);
             }
             var tree = builder.Build();
             GD.Print($"Generated token tree:\n{tree}\n");
+
+            GD.Print("Identifying patterns...");
+            foreach (var statement in tree.globalScope.items) {
+                GD.Print(statement);
+            }
+            GD.Print($"Generated patterns: [missing]");
 
             throw new NotImplementedException("todo");
             // return ROM.Parse(";todo");
